@@ -14,8 +14,13 @@ export function useCoffeeSocket(sessionId: string | null, facilitatorToken: stri
   const sessionHashRef = useRef<string>((() => {
     let hash = sessionStorage.getItem('coffee_session_hash');
     if (!hash) {
-      // Usa crypto.randomUUID() para maior entropia e evitar colisões entre participantes
-      hash = 'usr_' + crypto.randomUUID().replace(/-/g, '').substring(0, 16);
+      const generateId = () => {
+        if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+          return crypto.randomUUID().replace(/-/g, '').substring(0, 16);
+        }
+        return Math.random().toString(36).substring(2, 10) + Date.now().toString(36).substring(2, 10);
+      };
+      hash = 'usr_' + generateId();
       sessionStorage.setItem('coffee_session_hash', hash);
     }
     return hash;
