@@ -31,6 +31,10 @@ export const pt = {
       create_btn: 'Iniciar Sessão Lean Coffee',
       join_code_placeholder: 'Cole o código ou URL da reunião...',
       join_btn: 'Entrar na Reunião',
+      recent_facilitator_title: 'Mesas que Facilito',
+      recent_participant_title: 'Mesas que Participei',
+      share_invite: 'Copiar link da reunião',
+      remove_from_history: 'Remover do histórico',
     },
     ideation: {
       title: 'Proposição de Tópicos',

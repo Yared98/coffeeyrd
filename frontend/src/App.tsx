@@ -8,6 +8,7 @@ import { DiscussionView } from './components/DiscussionView';
 import { SummaryView } from './components/SummaryView';
 import { RomanVoteModal } from './components/RomanVoteModal';
 import { McpModal } from './components/McpModal';
+import { saveRecentSession } from './utils/recentSessions';
 
 export function App() {
   const [sessionId, setSessionId] = useState<string | null>(() => {
@@ -21,7 +22,9 @@ export function App() {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
     if (token) return token;
-    return sessionId ? sessionStorage.getItem(`coffee_token_${sessionId}`) : null;
+    const pathMatch = window.location.pathname.match(/\/session\/([A-Za-z0-9_-]+)/);
+    const sId = pathMatch ? pathMatch[1] : urlParams.get('session');
+    return sId ? (sessionStorage.getItem(`coffee_token_${sId}`) || localStorage.getItem(`coffee_token_${sId}`)) : null;
   });
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -61,10 +64,16 @@ export function App() {
   useEffect(() => {
     if (snapshot?.session?.title) {
       document.title = `${snapshot.session.title} — CoffeeYrd`;
+      saveRecentSession({
+        id: snapshot.session.id,
+        title: snapshot.session.title,
+        facilitatorToken: facilitatorToken || undefined,
+        role: snapshot.is_facilitator ? 'facilitator' : 'participant',
+      });
     } else {
       document.title = 'CoffeeYrd — Reuniões Lean Coffee em Tempo Real';
     }
-  }, [snapshot?.session?.title]);
+  }, [snapshot?.session?.title, snapshot?.session?.id, facilitatorToken, snapshot?.is_facilitator]);
 
   const handleCreateSession = async (
     title: string,
@@ -89,15 +98,34 @@ export function App() {
     const data = await res.json();
     if (data.id) {
       sessionStorage.setItem(`coffee_token_${data.id}`, data.facilitator_token);
+      localStorage.setItem(`coffee_token_${data.id}`, data.facilitator_token);
+      saveRecentSession({
+        id: data.id,
+        title: title.trim(),
+        facilitatorToken: data.facilitator_token,
+        role: 'facilitator',
+      });
       setSessionId(data.id);
       setFacilitatorToken(data.facilitator_token);
       window.history.pushState({}, '', `/session/${data.id}?token=${data.facilitator_token}`);
     }
   };
 
-  const handleJoinSession = (id: string) => {
+  const handleJoinSession = (id: string, token?: string | null) => {
+    const effectiveToken =
+      token ||
+      sessionStorage.getItem(`coffee_token_${id}`) ||
+      localStorage.getItem(`coffee_token_${id}`) ||
+      null;
+
     setSessionId(id);
-    window.history.pushState({}, '', `/session/${id}`);
+    if (effectiveToken) {
+      setFacilitatorToken(effectiveToken);
+      window.history.pushState({}, '', `/session/${id}?token=${effectiveToken}`);
+    } else {
+      setFacilitatorToken(null);
+      window.history.pushState({}, '', `/session/${id}`);
+    }
   };
 
   const handleLeaveSession = () => {

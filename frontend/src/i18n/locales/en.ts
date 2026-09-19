@@ -31,6 +31,10 @@ export const en = {
       create_btn: 'Start Lean Coffee Session',
       join_code_placeholder: 'Paste meeting code or URL...',
       join_btn: 'Join Session',
+      recent_facilitator_title: 'Tables I Facilitate',
+      recent_participant_title: 'Tables I Joined',
+      share_invite: 'Copy meeting link',
+      remove_from_history: 'Remove from history',
     },
     ideation: {
       title: 'Topic Ideation',

@@ -1,12 +1,29 @@
 import React, { useState } from 'react';
-import { Coffee, ArrowRight, Sun, Moon, Bot, Globe } from 'lucide-react';
+import {
+  Coffee,
+  ArrowRight,
+  Sun,
+  Moon,
+  Bot,
+  Globe,
+  History,
+  Shield,
+  Trash2,
+  Share2,
+  Check,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EcosystemSwitcher } from './EcosystemSwitcher';
 import { McpModal } from './McpModal';
+import {
+  getRecentSessions,
+  removeRecentSession,
+  type RecentSession,
+} from '../utils/recentSessions';
 
 interface HomeViewProps {
   onCreateSession: (title: string, maxVotes: number, defaultTimeboxSeconds: number) => Promise<void>;
-  onJoinSession: (sessionId: string) => void;
+  onJoinSession: (sessionId: string, facilitatorToken?: string | null) => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
 }
@@ -25,6 +42,30 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [joinCode, setJoinCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMcp, setShowMcp] = useState(false);
+
+  const [recentSessions, setRecentSessions] = useState<RecentSession[]>(() => getRecentSessions());
+  const [copiedSessionId, setCopiedSessionId] = useState<string | null>(null);
+
+  const facilitatorSessions = recentSessions.filter(
+    (s) => s.role === 'facilitator' || s.facilitatorToken
+  );
+  const participantSessions = recentSessions.filter(
+    (s) => s.role !== 'facilitator' && !s.facilitatorToken
+  );
+
+  const handleCopyInvite = (sessionId: string, facilitatorToken?: string | null) => {
+    const url = facilitatorToken
+      ? `${window.location.origin}/session/${sessionId}?token=${facilitatorToken}`
+      : `${window.location.origin}/session/${sessionId}`;
+    navigator.clipboard.writeText(url);
+    setCopiedSessionId(sessionId);
+    setTimeout(() => setCopiedSessionId(null), 2000);
+  };
+
+  const handleRemoveSession = (sessionId: string) => {
+    const updated = removeRecentSession(sessionId);
+    setRecentSessions(updated);
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -328,6 +369,252 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 <ArrowRight size={16} />
               </button>
             </form>
+          )}
+
+          {/* Histórico: Mesas que Facilito */}
+          {facilitatorSessions.length > 0 && (
+            <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: 'var(--text-main)', fontSize: '0.82rem', fontWeight: 700 }}>
+                  <Shield size={14} color="var(--color-primary)" />
+                  <span>{t('home.recent_facilitator_title')}</span>
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.7rem',
+                    color: 'var(--text-dim)',
+                    background: 'var(--bg-subtle)',
+                    padding: '0.1rem 0.45rem',
+                    borderRadius: 'var(--radius-full)',
+                  }}
+                >
+                  {facilitatorSessions.length}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', maxHeight: 220, overflowY: 'auto' }}>
+                {facilitatorSessions.map((s) => (
+                  <div
+                    key={s.id}
+                    style={{
+                      background: 'var(--bg-subtle)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '0.65rem 0.85rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '0.75rem',
+                      transition: 'all var(--transition-fast)',
+                    }}
+                  >
+                    <div style={{ minWidth: 0, flex: 1, cursor: 'pointer' }} onClick={() => onJoinSession(s.id, s.facilitatorToken)}>
+                      <div
+                        style={{
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          color: 'var(--text-main)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {s.title}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '0.15rem' }}>
+                        {new Date(s.updatedAt).toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyInvite(s.id, s.facilitatorToken)}
+                        title={t('home.share_invite')}
+                        style={{
+                          background: 'var(--bg-surface)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: 'var(--radius-sm)',
+                          padding: '0.3rem 0.45rem',
+                          fontSize: '0.72rem',
+                          color: copiedSessionId === s.id ? 'var(--color-success)' : 'var(--text-muted)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.2rem',
+                        }}
+                      >
+                        {copiedSessionId === s.id ? <Check size={12} /> : <Share2 size={12} />}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSession(s.id)}
+                        title={t('home.remove_from_history')}
+                        style={{
+                          background: 'var(--bg-surface)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: 'var(--radius-sm)',
+                          padding: '0.3rem 0.45rem',
+                          fontSize: '0.72rem',
+                          color: 'var(--color-danger, #ef4444)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onJoinSession(s.id, s.facilitatorToken)}
+                        className="btn-primary"
+                        style={{
+                          padding: '0.3rem 0.55rem',
+                          fontSize: '0.72rem',
+                          borderRadius: 'var(--radius-sm)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                        }}
+                      >
+                        <span>Entrar</span>
+                        <ArrowRight size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Histórico: Mesas que Participei */}
+          {participantSessions.length > 0 && (
+            <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: 'var(--text-main)', fontSize: '0.82rem', fontWeight: 700 }}>
+                  <History size={14} color="var(--color-primary)" />
+                  <span>{t('home.recent_participant_title')}</span>
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.7rem',
+                    color: 'var(--text-dim)',
+                    background: 'var(--bg-subtle)',
+                    padding: '0.1rem 0.45rem',
+                    borderRadius: 'var(--radius-full)',
+                  }}
+                >
+                  {participantSessions.length}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', maxHeight: 220, overflowY: 'auto' }}>
+                {participantSessions.map((s) => (
+                  <div
+                    key={s.id}
+                    style={{
+                      background: 'var(--bg-subtle)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '0.65rem 0.85rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '0.75rem',
+                      transition: 'all var(--transition-fast)',
+                    }}
+                  >
+                    <div style={{ minWidth: 0, flex: 1, cursor: 'pointer' }} onClick={() => onJoinSession(s.id)}>
+                      <div
+                        style={{
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
+                          color: 'var(--text-main)',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {s.title}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '0.15rem' }}>
+                        {new Date(s.updatedAt).toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyInvite(s.id)}
+                        title={t('home.share_invite')}
+                        style={{
+                          background: 'var(--bg-surface)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: 'var(--radius-sm)',
+                          padding: '0.3rem 0.45rem',
+                          fontSize: '0.72rem',
+                          color: copiedSessionId === s.id ? 'var(--color-success)' : 'var(--text-muted)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.2rem',
+                        }}
+                      >
+                        {copiedSessionId === s.id ? <Check size={12} /> : <Share2 size={12} />}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSession(s.id)}
+                        title={t('home.remove_from_history')}
+                        style={{
+                          background: 'var(--bg-surface)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: 'var(--radius-sm)',
+                          padding: '0.3rem 0.45rem',
+                          fontSize: '0.72rem',
+                          color: 'var(--color-danger, #ef4444)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onJoinSession(s.id)}
+                        className="btn-primary"
+                        style={{
+                          padding: '0.3rem 0.55rem',
+                          fontSize: '0.72rem',
+                          borderRadius: 'var(--radius-sm)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                        }}
+                      >
+                        <span>Entrar</span>
+                        <ArrowRight size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </div>
