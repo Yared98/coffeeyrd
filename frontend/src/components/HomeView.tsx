@@ -15,6 +15,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { EcosystemSwitcher } from './EcosystemSwitcher';
 import { McpModal } from './McpModal';
+import { Footer } from './Footer';
 import {
   getRecentSessions,
   removeRecentSession,
@@ -730,6 +731,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
           )}
         </div>
       </div>
+
+      <Footer style={{ marginTop: '2.5rem', width: '100%', maxWidth: '780px', margin: '2.5rem auto 0 auto' }} />
 
       <McpModal isOpen={showMcp} onClose={() => setShowMcp(false)} />
     </div>

@@ -126,5 +126,10 @@ export const pt = {
       endpoint: 'Endpoint JSON-RPC',
       copy_config: 'Copiar Configuração MCP',
     },
+    footer: {
+      developed_by: 'Desenvolvido por',
+      website_title: 'Visite o site do desenvolvedor (yared.com.br)',
+      github_title: 'Ver código-fonte do CoffeeYrd no GitHub',
+    },
   },
 };

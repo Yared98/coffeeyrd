@@ -11,6 +11,7 @@ import { SummaryView } from './components/SummaryView';
 import { RomanVoteModal } from './components/RomanVoteModal';
 import { McpModal } from './components/McpModal';
 import { IdentityModal } from './components/IdentityModal';
+import { Footer } from './components/Footer';
 import { saveRecentSession } from './utils/recentSessions';
 import { getUserProfileName } from './utils/userProfile';
 import { initAnalytics, trackPageView } from './utils/analytics';
@@ -375,6 +376,8 @@ export function App() {
           </button>
         </div>
       )}
+
+      <Footer style={{ marginTop: 'auto' }} />
     </div>
   );
 }
