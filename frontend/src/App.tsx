@@ -13,6 +13,7 @@ import { McpModal } from './components/McpModal';
 import { IdentityModal } from './components/IdentityModal';
 import { saveRecentSession } from './utils/recentSessions';
 import { getUserProfileName } from './utils/userProfile';
+import { initAnalytics, trackPageView } from './utils/analytics';
 
 export function App() {
   const [sessionId, setSessionId] = useState<string | null>(() => {
@@ -96,19 +97,29 @@ export function App() {
     }
   }, [showUndoToast]);
 
+  // Inicialização dinâmica do Umami Analytics (apenas se configurado via .env / backend)
   useEffect(() => {
+    initAnalytics();
+  }, []);
+
+  useEffect(() => {
+    const pageTitle = snapshot?.session?.title
+      ? `${snapshot.session.title} — CoffeeYrd`
+      : 'CoffeeYrd — Reuniões Lean Coffee em Tempo Real';
+    document.title = pageTitle;
+
     if (snapshot?.session?.title) {
-      document.title = `${snapshot.session.title} — CoffeeYrd`;
       saveRecentSession({
         id: snapshot.session.id,
         title: snapshot.session.title,
         facilitatorToken: facilitatorToken || undefined,
         role: snapshot.is_facilitator ? 'facilitator' : 'participant',
       });
-    } else {
-      document.title = 'CoffeeYrd — Reuniões Lean Coffee em Tempo Real';
     }
-  }, [snapshot?.session?.title, snapshot?.session?.id, facilitatorToken, snapshot?.is_facilitator]);
+
+    // Mascarar rotas: nunca enviar IDs ou tokens para o analytics
+    trackPageView(sessionId ? '/room' : '/', pageTitle);
+  }, [sessionId, snapshot?.session?.title, snapshot?.session?.id, facilitatorToken, snapshot?.is_facilitator]);
 
   const handleCreateSession = async (
     title: string,
