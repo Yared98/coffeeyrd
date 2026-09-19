@@ -21,6 +21,7 @@ import {
   type RecentSession,
 } from '../utils/recentSessions';
 import { getUserProfileName, saveUserProfileName } from '../utils/userProfile';
+import { copyToClipboard } from '../utils/clipboard';
 
 interface HomeViewProps {
   onCreateSession: (title: string, maxVotes: number, defaultTimeboxSeconds: number) => Promise<void>;
@@ -55,13 +56,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
     (s) => s.role !== 'facilitator' && !s.facilitatorToken
   );
 
-  const handleCopyInvite = (sessionId: string, facilitatorToken?: string | null) => {
-    const url = facilitatorToken
-      ? `${window.location.origin}/session/${sessionId}?token=${facilitatorToken}`
-      : `${window.location.origin}/session/${sessionId}`;
-    navigator.clipboard.writeText(url);
-    setCopiedSessionId(sessionId);
-    setTimeout(() => setCopiedSessionId(null), 2000);
+  const handleCopyInvite = async (sessionId: string) => {
+    const url = `${window.location.origin}/session/${sessionId}`;
+    const success = await copyToClipboard(url);
+    if (success) {
+      setCopiedSessionId(sessionId);
+      setTimeout(() => setCopiedSessionId(null), 2000);
+    }
   };
 
   const handleRemoveSession = (sessionId: string) => {
@@ -535,7 +536,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
                       <button
                         type="button"
-                        onClick={() => handleCopyInvite(s.id, s.facilitatorToken)}
+                        onClick={() => handleCopyInvite(s.id)}
                         title={t('home.share_invite')}
                         style={{
                           background: 'var(--bg-surface)',

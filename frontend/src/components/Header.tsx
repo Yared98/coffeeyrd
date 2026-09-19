@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EcosystemSwitcher } from './EcosystemSwitcher';
+import { copyToClipboard } from '../utils/clipboard';
 import type { Session, SessionPhase } from '../types';
 
 interface HeaderProps {
@@ -87,10 +88,23 @@ export const Header: React.FC<HeaderProps> = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('token');
+      const ok = await copyToClipboard(url.toString());
+      if (ok) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch {
+      const fallbackUrl = `${window.location.origin}/session/${session.id}`;
+      const ok = await copyToClipboard(fallbackUrl);
+      if (ok) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    }
   };
 
   const phases: { key: SessionPhase; label: string }[] = [

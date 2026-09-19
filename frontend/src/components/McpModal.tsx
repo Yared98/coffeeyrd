@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Bot, X, Copy, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { copyToClipboard } from '../utils/clipboard';
 
 interface McpModalProps {
   isOpen: boolean;
@@ -31,10 +32,12 @@ export const McpModal: React.FC<McpModalProps> = ({ isOpen, onClose }) => {
     2
   );
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(mcpConfig);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    const success = await copyToClipboard(mcpConfig);
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   return (

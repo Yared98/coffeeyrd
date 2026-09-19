@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import confetti from 'canvas-confetti';
 import type { Session, Topic } from '../types';
 import { MarkdownDescription } from './MarkdownDescription';
+import { copyToClipboard } from '../utils/clipboard';
 
 interface SummaryViewProps {
   session: Session;
@@ -56,10 +57,12 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
     return md;
   };
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(generateMarkdown());
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    const success = await copyToClipboard(generateMarkdown());
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   return (
