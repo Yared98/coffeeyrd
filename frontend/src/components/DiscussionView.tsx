@@ -10,7 +10,6 @@ import {
   FileText,
   Save,
   RotateCcw,
-  Vote,
   Loader2,
   GripVertical,
 } from 'lucide-react';
@@ -439,7 +438,7 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
               </h3>
             </div>
 
-            {isFacilitator && (
+            {isFacilitator && Boolean(activeTopic) && (
               <button
                 draggable={false}
                 onMouseDown={(e) => e.stopPropagation()}
@@ -756,18 +755,6 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                   </div>
 
                   <div style={{ display: 'flex', gap: '0.4rem' }}>
-                    <button
-                      draggable={false}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={onTriggerRomanVoting}
-                      className="btn-secondary"
-                      style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.74rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', color: 'var(--color-primary)' }}
-                      title={t('discussion.trigger_roman')}
-                    >
-                      <Vote size={13} />
-                      <span>{t('discussion.trigger_roman')}</span>
-                    </button>
-
                     <button
                       draggable={false}
                       onMouseDown={(e) => e.stopPropagation()}

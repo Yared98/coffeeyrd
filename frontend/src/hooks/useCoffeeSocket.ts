@@ -194,8 +194,8 @@ export function useCoffeeSocket(sessionId: string | null, facilitatorToken: stri
   }, [send]);
 
   const closeRomanVoting = useCallback(
-    (extend: boolean) => {
-      send('CLOSE_ROMAN_VOTING', { extend });
+    (extend?: boolean | null) => {
+      send('CLOSE_ROMAN_VOTING', { extend: extend ?? null });
     },
     [send]
   );

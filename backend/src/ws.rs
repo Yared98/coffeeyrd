@@ -547,7 +547,7 @@ async fn trigger_roman_voting_flow(state: &AppState, session_id: &str) {
     broadcast_snapshot(state, session_id);
 }
 
-async fn close_roman_voting_flow(state: &AppState, session_id: &str, extend: bool) {
+async fn close_roman_voting_flow(state: &AppState, session_id: &str, extend: Option<bool>) {
     let conn = match Connection::open(&state.db_path) {
         Ok(c) => c,
         Err(_) => return,
@@ -560,32 +560,34 @@ async fn close_roman_voting_flow(state: &AppState, session_id: &str, extend: boo
         r.topic_id.clone()
     };
 
-    if extend {
-        // Estende tópico em +2 minutos (120s) e inicia o timer
-        handle_timer_control(state, session_id, "START", Some(120)).await;
-    } else {
-        // Marca tópico atual como DISCUSSED e puxa o próximo da fila
-        if let Some(curr_id) = topic_id {
-            let _ = db::update_topic_status(&conn, &curr_id, TopicStatus::Discussed);
-        }
+    if let Some(should_extend) = extend {
+        if should_extend {
+            // Estende tópico em +2 minutos (120s) e inicia o timer
+            handle_timer_control(state, session_id, "START", Some(120)).await;
+        } else {
+            // Marca tópico atual como DISCUSSED e puxa o próximo da fila
+            if let Some(curr_id) = topic_id {
+                let _ = db::update_topic_status(&conn, &curr_id, TopicStatus::Discussed);
+            }
 
-        if let Ok(topics) = db::get_topics(&conn, session_id) {
-            if let Some(next_topic) = topics
-                .into_iter()
-                .find(|t| t.status == TopicStatus::ToDiscuss)
-            {
-                let _ = db::update_topic_status(&conn, &next_topic.id, TopicStatus::Discussing);
-                let _ = conn.execute(
-                    "UPDATE sessions SET active_topic_id = ?1 WHERE id = ?2",
-                    [&next_topic.id, session_id],
-                );
-                // Reseta timer para 5 minutos
-                let _ = db::update_session_timer(&conn, session_id, 300, false, None);
-            } else {
-                let _ = conn.execute(
-                    "UPDATE sessions SET active_topic_id = NULL WHERE id = ?1",
-                    [session_id],
-                );
+            if let Ok(topics) = db::get_topics(&conn, session_id) {
+                if let Some(next_topic) = topics
+                    .into_iter()
+                    .find(|t| t.status == TopicStatus::ToDiscuss)
+                {
+                    let _ = db::update_topic_status(&conn, &next_topic.id, TopicStatus::Discussing);
+                    let _ = conn.execute(
+                        "UPDATE sessions SET active_topic_id = ?1 WHERE id = ?2",
+                        [&next_topic.id, session_id],
+                    );
+                    // Reseta timer para 5 minutos
+                    let _ = db::update_session_timer(&conn, session_id, 300, false, None);
+                } else {
+                    let _ = conn.execute(
+                        "UPDATE sessions SET active_topic_id = NULL WHERE id = ?1",
+                        [session_id],
+                    );
+                }
             }
         }
     }

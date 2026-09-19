@@ -79,7 +79,10 @@ pub enum ClientMessage {
     #[serde(rename = "TRIGGER_ROMAN_VOTING")]
     TriggerRomanVoting {},
     #[serde(rename = "CLOSE_ROMAN_VOTING")]
-    CloseRomanVoting { extend: bool },
+    CloseRomanVoting {
+        #[serde(default)]
+        extend: Option<bool>,
+    },
     /// Notifica o servidor que o usuário está (ou parou de) digitando
     #[serde(rename = "TYPING_INDICATOR")]
     TypingIndicator {

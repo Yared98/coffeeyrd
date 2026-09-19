@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Clock, ThumbsUp, ThumbsDown, Minus, Check, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Clock, ThumbsUp, ThumbsDown, Minus, Check, ArrowRight, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { RomanVoteChoice, RomanVotingState } from '../types';
 
@@ -8,7 +8,7 @@ interface RomanVoteModalProps {
   topicTitle?: string;
   isFacilitator: boolean;
   onCastVote: (choice: RomanVoteChoice) => void;
-  onCloseVoting: (extend: boolean) => void;
+  onCloseVoting: (extend?: boolean | null) => void;
 }
 
 export const RomanVoteModal: React.FC<RomanVoteModalProps> = ({
@@ -20,8 +20,16 @@ export const RomanVoteModal: React.FC<RomanVoteModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [selectedChoice, setSelectedChoice] = useState<RomanVoteChoice | null>(null);
+  const [isDismissedLocally, setIsDismissedLocally] = useState(false);
 
-  if (!state.is_active) return null;
+  // Reseta dismiss local quando uma nova votação começar
+  useEffect(() => {
+    if (state.is_active) {
+      setIsDismissedLocally(false);
+    }
+  }, [state.is_active, state.topic_id]);
+
+  if (!state.is_active || isDismissedLocally) return null;
 
   const handleVote = (choice: RomanVoteChoice) => {
     setSelectedChoice(choice);
@@ -47,6 +55,7 @@ export const RomanVoteModal: React.FC<RomanVoteModalProps> = ({
       <div
         className="glass-modal"
         style={{
+          position: 'relative',
           width: '100%',
           maxWidth: '480px',
           padding: '2rem',
@@ -57,6 +66,36 @@ export const RomanVoteModal: React.FC<RomanVoteModalProps> = ({
           gap: '1.25rem',
         }}
       >
+        {/* Botão de Fechar no Canto Superior Direito */}
+        <button
+          onClick={() => {
+            if (isFacilitator) {
+              onCloseVoting(null);
+            } else {
+              setIsDismissedLocally(true);
+            }
+          }}
+          aria-label="Fechar votação"
+          style={{
+            position: 'absolute',
+            top: '1rem',
+            right: '1rem',
+            background: 'var(--bg-subtle)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-full)',
+            width: '32px',
+            height: '32px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            transition: 'all var(--transition-fast)',
+          }}
+          title={isFacilitator ? "Fechar votação sem ação para todos" : "Fechar modal"}
+        >
+          <X size={16} />
+        </button>
         <div
           style={{
             width: 48,
@@ -228,28 +267,50 @@ export const RomanVoteModal: React.FC<RomanVoteModalProps> = ({
           <div
             style={{
               display: 'flex',
-              gap: '0.5rem',
+              flexDirection: 'column',
+              gap: '0.65rem',
               width: '100%',
               marginTop: '0.5rem',
               paddingTop: '1rem',
               borderTop: '1px solid var(--border-subtle)',
             }}
           >
+            <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+              <button
+                onClick={() => onCloseVoting(true)}
+                className="btn-secondary"
+                style={{ flex: 1, color: 'var(--color-success)', padding: '0.5rem', fontSize: '0.82rem' }}
+              >
+                <Check size={14} />
+                <span>Estender (+2m)</span>
+              </button>
+              <button
+                onClick={() => onCloseVoting(false)}
+                className="btn-primary"
+                style={{ flex: 1, padding: '0.5rem', fontSize: '0.82rem' }}
+              >
+                <span>Puxar Próximo</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
+
             <button
-              onClick={() => onCloseVoting(true)}
+              type="button"
+              onClick={() => onCloseVoting(null)}
               className="btn-secondary"
-              style={{ flex: 1, color: 'var(--color-success)' }}
+              style={{
+                width: '100%',
+                padding: '0.45rem',
+                fontSize: '0.75rem',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.35rem',
+              }}
             >
-              <Check size={14} />
-              <span>Estender (+2m)</span>
-            </button>
-            <button
-              onClick={() => onCloseVoting(false)}
-              className="btn-primary"
-              style={{ flex: 1 }}
-            >
-              <span>Puxar Próximo</span>
-              <ArrowRight size={14} />
+              <X size={13} />
+              <span>Fechar sem ação (manter tópico e timer atuais)</span>
             </button>
           </div>
         )}
