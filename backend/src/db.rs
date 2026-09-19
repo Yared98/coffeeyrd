@@ -2,7 +2,7 @@
 
 use crate::models::{RomanVoteChoice, Session, SessionPhase, Topic, TopicStatus};
 use chrono::Utc;
-use rusqlite::{params, Connection, Result};
+use rusqlite::{params, Connection, OptionalExtension, Result};
 
 pub fn init_db(conn: &Connection) -> Result<()> {
     conn.execute_batch(
@@ -329,3 +329,142 @@ pub fn clear_roman_votes(conn: &Connection, session_id: &str) -> Result<()> {
     conn.execute("DELETE FROM roman_votes WHERE session_id = ?1", params![session_id])?;
     Ok(())
 }
+
+pub fn merge_topics(
+    conn: &Connection,
+    session_id: &str,
+    source_id: &str,
+    target_id: &str,
+) -> Result<()> {
+    if source_id == target_id {
+        return Ok(());
+    }
+
+    let mut stmt = conn.prepare(
+        "SELECT id, title, description, author_name, notes FROM topics WHERE session_id = ?1 AND id = ?2",
+    )?;
+
+    let source = stmt
+        .query_row(params![session_id, source_id], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, Option<String>>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, String>(4)?,
+            ))
+        })
+        .optional()?;
+
+    let target = stmt
+        .query_row(params![session_id, target_id], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, Option<String>>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, String>(4)?,
+            ))
+        })
+        .optional()?;
+
+    if let (Some((_, s_title, s_desc, s_author, s_notes)), Some((_, _t_title, t_desc, t_author, t_notes))) =
+        (source, target)
+    {
+        // Concatena descrições com créditos
+        let merged_desc = {
+            let mut parts = Vec::new();
+            if let Some(td) = t_desc {
+                if !td.trim().is_empty() {
+                    parts.push(td);
+                }
+            }
+            let source_info = if let Some(sd) = s_desc {
+                if !sd.trim().is_empty() {
+                    format!("[Mesclado de {}: {} - {}]", s_author, s_title, sd)
+                } else {
+                    format!("[Mesclado de {}: {}]", s_author, s_title)
+                }
+            } else {
+                format!("[Mesclado de {}: {}]", s_author, s_title)
+            };
+            parts.push(source_info);
+            parts.join("\n\n")
+        };
+
+        // Concatena notas
+        let merged_notes = if !s_notes.trim().is_empty() {
+            if !t_notes.trim().is_empty() {
+                format!("{}\n\n{}", t_notes, s_notes)
+            } else {
+                s_notes
+            }
+        } else {
+            t_notes
+        };
+
+        // Combina autores
+        let merged_author = if t_author.contains(&s_author) {
+            t_author
+        } else {
+            format!("{}, {}", t_author, s_author)
+        };
+
+        // Atualiza tópico destino
+        conn.execute(
+            "UPDATE topics SET description = ?1, notes = ?2, author_name = ?3 WHERE id = ?4 AND session_id = ?5",
+            params![merged_desc, merged_notes, merged_author, target_id, session_id],
+        )?;
+
+        // Migra votos do source para target
+        let mut v_stmt = conn.prepare(
+            "SELECT voter_hash, created_at FROM votes WHERE session_id = ?1 AND topic_id = ?2",
+        )?;
+        let source_voters: Vec<(String, String)> = v_stmt
+            .query_map(params![session_id, source_id], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        for (v_hash, v_created) in source_voters {
+            let already_voted_target: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM votes WHERE session_id = ?1 AND topic_id = ?2 AND voter_hash = ?3",
+                params![session_id, target_id, v_hash],
+                |r| r.get(0),
+            )?;
+            if already_voted_target == 0 {
+                conn.execute(
+                    "INSERT INTO votes (session_id, topic_id, voter_hash, created_at) VALUES (?1, ?2, ?3, ?4)",
+                    params![session_id, target_id, v_hash, v_created],
+                )?;
+            }
+        }
+
+        // Deleta votos associados ao source
+        conn.execute(
+            "DELETE FROM votes WHERE session_id = ?1 AND topic_id = ?2",
+            params![session_id, source_id],
+        )?;
+
+        // Recalcula total de votos do target
+        let total_target_votes: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM votes WHERE session_id = ?1 AND topic_id = ?2",
+            params![session_id, target_id],
+            |r| r.get(0),
+        )?;
+        conn.execute(
+            "UPDATE topics SET vote_count = ?1 WHERE id = ?2",
+            params![total_target_votes, target_id],
+        )?;
+
+        // Deleta o tópico de origem
+        conn.execute(
+            "DELETE FROM topics WHERE id = ?1 AND session_id = ?2",
+            params![source_id, session_id],
+        )?;
+    }
+
+    Ok(())
+}
+

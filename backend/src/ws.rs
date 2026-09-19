@@ -305,9 +305,39 @@ async fn process_client_message(
 
         ClientMessage::MoveTopicStatus { topic_id, status } => {
             if is_facilitator {
-                let _ = db::update_topic_status(&conn, &topic_id, status);
+                let _ = db::update_topic_status(&conn, &topic_id, status.clone());
+
+                if status == TopicStatus::Discussing {
+                    let _ = conn.execute(
+                        "UPDATE sessions SET active_topic_id = ?1 WHERE id = ?2",
+                        [&topic_id, session_id],
+                    );
+                } else {
+                    let active_id: Option<String> = conn
+                        .query_row(
+                            "SELECT active_topic_id FROM sessions WHERE id = ?1",
+                            [session_id],
+                            |r| r.get(0),
+                        )
+                        .ok();
+                    if active_id.as_deref() == Some(&topic_id) {
+                        let _ = conn.execute(
+                            "UPDATE sessions SET active_topic_id = NULL WHERE id = ?1",
+                            [session_id],
+                        );
+                    }
+                }
+
                 broadcast_snapshot(state, session_id);
             }
+        }
+
+        ClientMessage::MergeTopics {
+            source_topic_id,
+            target_topic_id,
+        } => {
+            let _ = db::merge_topics(&conn, session_id, &source_topic_id, &target_topic_id);
+            broadcast_snapshot(state, session_id);
         }
 
         ClientMessage::CastRomanVote { choice } => {

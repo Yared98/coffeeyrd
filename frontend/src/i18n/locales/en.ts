@@ -40,12 +40,16 @@ export const en = {
       author_placeholder: 'Your name (or leave empty for anonymous)',
       add_btn: 'Add Topic',
       empty: 'No topics proposed yet. Be the first to add one!',
+      drag_merge_hint: 'Tip: Drag a card over another to merge similar topics.',
+      drop_to_merge: 'Drop to merge topics',
     },
     voting: {
       title: 'Topic Prioritization',
       subtitle: 'Cast your votes on the topics that matter most.',
       remaining_votes: 'Remaining votes: {{count}}',
       empty: 'No topics to vote on.',
+      drag_merge_hint: 'Drag a card over another to merge duplicate topics.',
+      drop_to_merge: 'Drop to merge topics',
     },
     discussion: {
       col_to_discuss: 'To Discuss',
@@ -58,6 +62,11 @@ export const en = {
       next_topic: 'Finish & Next',
       trigger_roman: 'Roman Voting',
       empty_discussing: 'No active topic. Pick a topic from the queue or advance phase!',
+      reopen_to_queue: 'Return to Queue',
+      reopen_to_discussing: 'Resume Discussion',
+      return_to_queue: 'Return to Queue',
+      conclude_topic: 'Conclude Topic',
+      drop_here: 'Drop here to move',
     },
     roman: {
       title: '⏰ Timebox Expired!',

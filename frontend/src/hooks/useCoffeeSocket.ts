@@ -28,7 +28,7 @@ export function useCoffeeSocket(sessionId: string | null, facilitatorToken: stri
     }
 
     const host =
-      window.location.port === '5173'
+      window.location.port === '5173' || window.location.port === '5175'
         ? 'localhost:8082'
         : window.location.host;
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -141,6 +141,13 @@ export function useCoffeeSocket(sessionId: string | null, facilitatorToken: stri
     [send]
   );
 
+  const mergeTopics = useCallback(
+    (sourceTopicId: string, targetTopicId: string) => {
+      send('MERGE_TOPICS', { source_topic_id: sourceTopicId, target_topic_id: targetTopicId });
+    },
+    [send]
+  );
+
   const castRomanVote = useCallback(
     (choice: RomanVoteChoice) => {
       send('CAST_ROMAN_VOTE', { choice });
@@ -170,6 +177,7 @@ export function useCoffeeSocket(sessionId: string | null, facilitatorToken: stri
     selectActiveTopic,
     updateNotes,
     moveTopicStatus,
+    mergeTopics,
     castRomanVote,
     triggerRomanVoting,
     closeRomanVoting,

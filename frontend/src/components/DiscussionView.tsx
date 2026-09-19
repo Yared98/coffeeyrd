@@ -9,9 +9,10 @@ import {
   ArrowRight,
   FileText,
   Save,
+  RotateCcw,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { Topic } from '../types';
+import type { Topic, TopicStatus } from '../types';
 
 interface DiscussionViewProps {
   topics: Topic[];
@@ -24,6 +25,7 @@ interface DiscussionViewProps {
   onControlTimer: (action: 'START' | 'PAUSE' | 'RESET' | 'ADD_SECONDS', seconds?: number) => void;
   onTriggerRomanVoting: () => void;
   onAdvanceToCompleted: () => void;
+  onMoveTopicStatus?: (topicId: string, status: TopicStatus) => void;
 }
 
 export const DiscussionView: React.FC<DiscussionViewProps> = ({
@@ -37,6 +39,7 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
   onControlTimer,
   onTriggerRomanVoting,
   onAdvanceToCompleted,
+  onMoveTopicStatus,
 }) => {
   const { t } = useTranslation();
 
@@ -46,6 +49,7 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
 
   const [notes, setNotes] = useState(activeTopic?.notes || '');
   const [isSaved, setIsSaved] = useState(true);
+  const [dragOverCol, setDragOverCol] = useState<'TO_DISCUSS' | 'DISCUSSING' | 'DISCUSSED' | null>(null);
 
   // Sincronizar notas locais quando o tópico ativo mudar
   React.useEffect(() => {
@@ -81,6 +85,23 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
         {/* Coluna 1: A Discutir */}
         <div
           className="glass-panel"
+          onDragOver={(e) => {
+            if (!isFacilitator) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (dragOverCol !== 'TO_DISCUSS') setDragOverCol('TO_DISCUSS');
+          }}
+          onDragLeave={(e) => {
+            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+            if (dragOverCol === 'TO_DISCUSS') setDragOverCol(null);
+          }}
+          onDrop={(e) => {
+            if (!isFacilitator) return;
+            e.preventDefault();
+            setDragOverCol(null);
+            const topicId = e.dataTransfer.getData('text/plain');
+            if (topicId && onMoveTopicStatus) onMoveTopicStatus(topicId, 'TO_DISCUSS');
+          }}
           style={{
             padding: '1.25rem',
             display: 'flex',
@@ -88,6 +109,9 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
             gap: '1rem',
             maxHeight: 'calc(100vh - 180px)',
             overflowY: 'auto',
+            border: dragOverCol === 'TO_DISCUSS' ? '2px dashed var(--color-primary)' : '1px solid var(--border-subtle)',
+            background: dragOverCol === 'TO_DISCUSS' ? 'var(--color-primary-subtle)' : undefined,
+            transition: 'all var(--transition-fast)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -120,6 +144,11 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
               toDiscuss.map((topic) => (
                 <div
                   key={topic.id}
+                  draggable={isFacilitator}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', topic.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
                   style={{
                     background: 'var(--bg-surface-elevated)',
                     border: '1px solid var(--border-subtle)',
@@ -128,6 +157,7 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '0.5rem',
+                    cursor: isFacilitator ? 'grab' : 'default',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
@@ -151,7 +181,7 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                   </div>
 
                   {topic.description && (
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0, whiteSpace: 'pre-line' }}>
                       {topic.description}
                     </p>
                   )}
@@ -182,13 +212,31 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
         {/* Coluna 2: Discutindo Agora (Spotlight) */}
         <div
           className="glass-panel"
+          onDragOver={(e) => {
+            if (!isFacilitator) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (dragOverCol !== 'DISCUSSING') setDragOverCol('DISCUSSING');
+          }}
+          onDragLeave={(e) => {
+            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+            if (dragOverCol === 'DISCUSSING') setDragOverCol(null);
+          }}
+          onDrop={(e) => {
+            if (!isFacilitator) return;
+            e.preventDefault();
+            setDragOverCol(null);
+            const topicId = e.dataTransfer.getData('text/plain');
+            if (topicId) onSelectActiveTopic(topicId);
+          }}
           style={{
             padding: '1.25rem',
-            border: '2px solid var(--border-primary)',
+            border: dragOverCol === 'DISCUSSING' ? '2px dashed var(--color-primary)' : '2px solid var(--border-primary)',
             background: 'var(--color-primary-subtle)',
             display: 'flex',
             flexDirection: 'column',
             gap: '1.25rem',
+            transition: 'all var(--transition-fast)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -213,6 +261,11 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
 
           {activeTopic ? (
             <div
+              draggable={isFacilitator}
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/plain', activeTopic.id);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
               style={{
                 background: 'var(--bg-surface)',
                 border: '1px solid var(--border-highlight)',
@@ -221,6 +274,7 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '1rem',
+                cursor: isFacilitator ? 'grab' : 'default',
               }}
             >
               <div>
@@ -239,7 +293,7 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                   {activeTopic.title}
                 </h2>
                 {activeTopic.description && (
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.4rem', lineHeight: 1.5 }}>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.4rem', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
                     {activeTopic.description}
                   </p>
                 )}
@@ -293,24 +347,48 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
 
               {/* Botões do Facilitador */}
               {isFacilitator && (
-                <div style={{ display: 'flex', gap: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)' }}>
-                  <button
-                    onClick={() => onControlTimer(timerIsRunning ? 'PAUSE' : 'START')}
-                    className="btn-secondary"
-                    style={{ flex: 1, padding: '0.5rem', fontSize: '0.78rem' }}
-                  >
-                    {timerIsRunning ? <Clock size={14} /> : <Play size={14} />}
-                    <span>{timerIsRunning ? t('discussion.pause_timer') : t('discussion.start_timer')}</span>
-                  </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => onControlTimer(timerIsRunning ? 'PAUSE' : 'START')}
+                      className="btn-secondary"
+                      style={{ flex: 1, padding: '0.5rem', fontSize: '0.78rem' }}
+                    >
+                      {timerIsRunning ? <Clock size={14} /> : <Play size={14} />}
+                      <span>{timerIsRunning ? t('discussion.pause_timer') : t('discussion.start_timer')}</span>
+                    </button>
 
-                  <button
-                    onClick={onTriggerRomanVoting}
-                    className="btn-primary"
-                    style={{ flex: 1, padding: '0.5rem', fontSize: '0.78rem' }}
-                  >
-                    <span>{t('discussion.next_topic')}</span>
-                    <ArrowRight size={14} />
-                  </button>
+                    <button
+                      onClick={onTriggerRomanVoting}
+                      className="btn-primary"
+                      style={{ flex: 1, padding: '0.5rem', fontSize: '0.78rem' }}
+                    >
+                      <span>{t('discussion.next_topic')}</span>
+                      <ArrowRight size={14} />
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => onMoveTopicStatus?.(activeTopic.id, 'TO_DISCUSS')}
+                      className="btn-secondary"
+                      style={{ flex: 1, padding: '0.35rem 0.6rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                      title={t('discussion.return_to_queue')}
+                    >
+                      <RotateCcw size={13} />
+                      <span>{t('discussion.return_to_queue')}</span>
+                    </button>
+
+                    <button
+                      onClick={() => onMoveTopicStatus?.(activeTopic.id, 'DISCUSSED')}
+                      className="btn-secondary"
+                      style={{ flex: 1, padding: '0.35rem 0.6rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                      title={t('discussion.conclude_topic')}
+                    >
+                      <Check size={13} color="var(--color-success)" />
+                      <span>{t('discussion.conclude_topic')}</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -343,6 +421,23 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
         {/* Coluna 3: Discutido */}
         <div
           className="glass-panel"
+          onDragOver={(e) => {
+            if (!isFacilitator) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (dragOverCol !== 'DISCUSSED') setDragOverCol('DISCUSSED');
+          }}
+          onDragLeave={(e) => {
+            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+            if (dragOverCol === 'DISCUSSED') setDragOverCol(null);
+          }}
+          onDrop={(e) => {
+            if (!isFacilitator) return;
+            e.preventDefault();
+            setDragOverCol(null);
+            const topicId = e.dataTransfer.getData('text/plain');
+            if (topicId && onMoveTopicStatus) onMoveTopicStatus(topicId, 'DISCUSSED');
+          }}
           style={{
             padding: '1.25rem',
             display: 'flex',
@@ -350,6 +445,9 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
             gap: '1rem',
             maxHeight: 'calc(100vh - 180px)',
             overflowY: 'auto',
+            border: dragOverCol === 'DISCUSSED' ? '2px dashed var(--color-primary)' : '1px solid var(--border-subtle)',
+            background: dragOverCol === 'DISCUSSED' ? 'var(--color-primary-subtle)' : undefined,
+            transition: 'all var(--transition-fast)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -382,6 +480,11 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
               discussed.map((topic) => (
                 <div
                   key={topic.id}
+                  draggable={isFacilitator}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', topic.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
                   style={{
                     background: 'var(--bg-surface-elevated)',
                     border: '1px solid var(--border-subtle)',
@@ -389,13 +492,17 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                     padding: '0.85rem',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '0.4rem',
-                    opacity: 0.85,
+                    gap: '0.5rem',
+                    opacity: 0.9,
+                    cursor: isFacilitator ? 'grab' : 'default',
                   }}
                 >
-                  <h4 style={{ fontSize: '0.875rem', fontWeight: 700, margin: 0, textDecoration: 'line-through', color: 'var(--text-muted)' }}>
-                    {topic.title}
-                  </h4>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
+                    <h4 style={{ fontSize: '0.875rem', fontWeight: 700, margin: 0, textDecoration: 'line-through', color: 'var(--text-muted)' }}>
+                      {topic.title}
+                    </h4>
+                  </div>
+
                   {topic.notes && (
                     <div
                       style={{
@@ -408,6 +515,30 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                       }}
                     >
                       {topic.notes}
+                    </div>
+                  )}
+
+                  {isFacilitator && (
+                    <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', paddingTop: '0.4rem', borderTop: '1px solid var(--border-subtle)' }}>
+                      <button
+                        onClick={() => onMoveTopicStatus?.(topic.id, 'TO_DISCUSS')}
+                        className="btn-secondary"
+                        style={{ padding: '0.25rem 0.55rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                        title={t('discussion.reopen_to_queue')}
+                      >
+                        <RotateCcw size={12} />
+                        <span>{t('discussion.reopen_to_queue')}</span>
+                      </button>
+
+                      <button
+                        onClick={() => onSelectActiveTopic(topic.id)}
+                        className="btn-secondary"
+                        style={{ padding: '0.25rem 0.55rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                        title={t('discussion.reopen_to_discussing')}
+                      >
+                        <Play size={12} />
+                        <span>{t('discussion.reopen_to_discussing')}</span>
+                      </button>
                     </div>
                   )}
                 </div>

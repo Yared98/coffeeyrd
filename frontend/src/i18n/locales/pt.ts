@@ -40,12 +40,16 @@ export const pt = {
       author_placeholder: 'Seu nome (ou deixe vazio para anônimo)',
       add_btn: 'Adicionar Tópico',
       empty: 'Nenhum tópico sugerido ainda. Seja o primeiro a propor!',
+      drag_merge_hint: 'Dica: Arraste um card sobre outro para mesclar tópicos semelhantes.',
+      drop_to_merge: 'Solte para mesclar tópicos',
     },
     voting: {
       title: 'Priorização de Pautas',
       subtitle: 'Distribua seus votos nos tópicos que você considera mais importantes.',
       remaining_votes: 'Votos restantes: {{count}}',
       empty: 'Nenhum tópico para votar.',
+      drag_merge_hint: 'Arraste um card sobre outro para mesclar tópicos duplicados.',
+      drop_to_merge: 'Solte para mesclar tópicos',
     },
     discussion: {
       col_to_discuss: 'A Discutir',
@@ -58,6 +62,11 @@ export const pt = {
       next_topic: 'Concluir & Próximo',
       trigger_roman: 'Votação Romana',
       empty_discussing: 'Nenhum tópico ativo. Selecione um tópico da fila ou avance a fase!',
+      reopen_to_queue: 'Voltar para Fila',
+      reopen_to_discussing: 'Retomar Discussão',
+      return_to_queue: 'Devolver à Fila',
+      conclude_topic: 'Concluir Tópico',
+      drop_here: 'Solte aqui para mover',
     },
     roman: {
       title: '⏰ O Timebox Acabou!',

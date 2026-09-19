@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, User, Sparkles } from 'lucide-react';
+import { Plus, Trash2, User, Sparkles, GitMerge } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Topic } from '../types';
 
@@ -8,6 +8,7 @@ interface IdeationViewProps {
   isFacilitator: boolean;
   onAddTopic: (title: string, description?: string, authorName?: string) => void;
   onDeleteTopic: (topicId: string) => void;
+  onMergeTopics?: (sourceTopicId: string, targetTopicId: string) => void;
 }
 
 export const IdeationView: React.FC<IdeationViewProps> = ({
@@ -15,11 +16,14 @@ export const IdeationView: React.FC<IdeationViewProps> = ({
   isFacilitator: _isFacilitator,
   onAddTopic,
   onDeleteTopic,
+  onMergeTopics,
 }) => {
   const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [authorName, setAuthorName] = useState(() => localStorage.getItem('coffee_author') || '');
+  const [draggedTopicId, setDraggedTopicId] = useState<string | null>(null);
+  const [dragOverTopicId, setDragOverTopicId] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,75 +147,162 @@ export const IdeationView: React.FC<IdeationViewProps> = ({
           <p style={{ margin: 0, fontSize: '0.9rem' }}>{t('ideation.empty')}</p>
         </div>
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: '1rem',
-          }}
-        >
-          {topics.map((topic) => (
+        <>
+          {topics.length > 1 && (
             <div
-              key={topic.id}
-              className="glass-panel"
               style={{
-                padding: '1.1rem',
                 display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                gap: '0.75rem',
-                position: 'relative',
+                alignItems: 'center',
+                gap: '0.45rem',
+                marginBottom: '1rem',
+                color: 'var(--color-primary)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                background: 'var(--color-primary-subtle)',
+                padding: '0.5rem 0.85rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-primary)',
               }}
             >
-              <div>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
-                  {topic.title}
-                </h3>
-                {topic.description && (
-                  <p
+              <GitMerge size={15} />
+              <span>{t('ideation.drag_merge_hint')}</span>
+            </div>
+          )}
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gap: '1rem',
+            }}
+          >
+            {topics.map((topic) => {
+              const isOver = dragOverTopicId === topic.id;
+              const isBeingDragged = draggedTopicId === topic.id;
+
+              return (
+                <div
+                  key={topic.id}
+                  draggable={true}
+                  onDragStart={(e) => {
+                    setDraggedTopicId(topic.id);
+                    e.dataTransfer.setData('text/plain', topic.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragEnd={() => {
+                    setDraggedTopicId(null);
+                    setDragOverTopicId(null);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (draggedTopicId && draggedTopicId !== topic.id && dragOverTopicId !== topic.id) {
+                      setDragOverTopicId(topic.id);
+                    }
+                  }}
+                  onDragLeave={(e) => {
+                    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                    if (dragOverTopicId === topic.id) setDragOverTopicId(null);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOverTopicId(null);
+                    const sourceId = e.dataTransfer.getData('text/plain') || draggedTopicId;
+                    if (sourceId && sourceId !== topic.id && onMergeTopics) {
+                      onMergeTopics(sourceId, topic.id);
+                    }
+                  }}
+                  className="glass-panel"
+                  style={{
+                    padding: '1.1rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '0.75rem',
+                    position: 'relative',
+                    cursor: 'grab',
+                    opacity: isBeingDragged ? 0.4 : 1,
+                    border: isOver ? '2px dashed var(--color-primary)' : '1px solid var(--border-subtle)',
+                    background: isOver ? 'var(--color-primary-subtle)' : 'var(--bg-surface-elevated)',
+                    transition: 'all var(--transition-fast)',
+                  }}
+                >
+                  {isOver && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'var(--color-primary-subtle)',
+                        backdropFilter: 'blur(2px)',
+                        borderRadius: 'inherit',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                        zIndex: 10,
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      <GitMerge size={24} color="var(--color-primary)" />
+                      <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--color-primary)' }}>
+                        {t('ideation.drop_to_merge')}
+                      </span>
+                    </div>
+                  )}
+
+                  <div>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
+                      {topic.title}
+                    </h3>
+                    {topic.description && (
+                      <p
+                        style={{
+                          fontSize: '0.8rem',
+                          color: 'var(--text-muted)',
+                          marginTop: '0.4rem',
+                          lineHeight: 1.4,
+                          whiteSpace: 'pre-line',
+                        }}
+                      >
+                        {topic.description}
+                      </p>
+                    )}
+                  </div>
+
+                  <div
                     style={{
-                      fontSize: '0.8rem',
-                      color: 'var(--text-muted)',
-                      marginTop: '0.4rem',
-                      lineHeight: 1.4,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingTop: '0.65rem',
+                      borderTop: '1px solid var(--border-subtle)',
                     }}
                   >
-                    {topic.description}
-                  </p>
-                )}
-              </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-dim)', fontSize: '0.72rem' }}>
+                      <User size={12} />
+                      <span>{topic.author_name}</span>
+                    </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingTop: '0.65rem',
-                  borderTop: '1px solid var(--border-subtle)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-dim)', fontSize: '0.72rem' }}>
-                  <User size={12} />
-                  <span>{topic.author_name}</span>
+                    <button
+                      onClick={() => onDeleteTopic(topic.id)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-dim)',
+                        cursor: 'pointer',
+                        padding: '0.2rem',
+                      }}
+                      title="Excluir tópico"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
-
-                <button
-                  onClick={() => onDeleteTopic(topic.id)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--text-dim)',
-                    cursor: 'pointer',
-                    padding: '0.2rem',
-                  }}
-                  title="Excluir tópico"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );

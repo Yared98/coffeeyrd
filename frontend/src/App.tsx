@@ -51,7 +51,8 @@ export function App() {
     controlTimer,
     selectActiveTopic,
     updateNotes,
-    moveTopicStatus: _moveTopicStatus,
+    moveTopicStatus,
+    mergeTopics,
     castRomanVote,
     triggerRomanVoting,
     closeRomanVoting,
@@ -70,7 +71,10 @@ export function App() {
     maxVotes: number,
     defaultTimeboxSeconds: number
   ) => {
-    const apiHost = window.location.port === '5173' ? 'http://localhost:8082' : '';
+    const apiHost =
+      window.location.port === '5173' || window.location.port === '5175'
+        ? 'http://localhost:8082'
+        : '';
     const res = await fetch(`${apiHost}/api/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -104,7 +108,10 @@ export function App() {
 
   const handleExport = async () => {
     if (!sessionId) return;
-    const apiHost = window.location.port === '5173' ? 'http://localhost:8082' : '';
+    const apiHost =
+      window.location.port === '5173' || window.location.port === '5175'
+        ? 'http://localhost:8082'
+        : '';
     window.location.href = `${apiHost}/api/sessions/${sessionId}/export`;
   };
 
@@ -164,6 +171,7 @@ export function App() {
             isFacilitator={is_facilitator}
             onAddTopic={addTopic}
             onDeleteTopic={deleteTopic}
+            onMergeTopics={mergeTopics}
           />
         )}
 
@@ -173,6 +181,7 @@ export function App() {
             userVotedTopicIds={user_voted_topic_ids}
             maxVotes={session.max_votes_per_user}
             onToggleVote={toggleVote}
+            onMergeTopics={mergeTopics}
           />
         )}
 
@@ -188,6 +197,7 @@ export function App() {
             onControlTimer={controlTimer}
             onTriggerRomanVoting={triggerRomanVoting}
             onAdvanceToCompleted={() => changePhase('COMPLETED')}
+            onMoveTopicStatus={moveTopicStatus}
           />
         )}
 

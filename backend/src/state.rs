@@ -57,6 +57,11 @@ pub enum ClientMessage {
         topic_id: String,
         status: TopicStatus,
     },
+    #[serde(rename = "MERGE_TOPICS")]
+    MergeTopics {
+        source_topic_id: String,
+        target_topic_id: String,
+    },
     #[serde(rename = "CAST_ROMAN_VOTE")]
     CastRomanVote { choice: RomanVoteChoice },
     #[serde(rename = "TRIGGER_ROMAN_VOTING")]
