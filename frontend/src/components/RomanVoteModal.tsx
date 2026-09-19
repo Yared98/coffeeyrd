@@ -267,50 +267,28 @@ export const RomanVoteModal: React.FC<RomanVoteModalProps> = ({
           <div
             style={{
               display: 'flex',
-              flexDirection: 'column',
-              gap: '0.65rem',
+              gap: '0.5rem',
               width: '100%',
               marginTop: '0.5rem',
               paddingTop: '1rem',
               borderTop: '1px solid var(--border-subtle)',
             }}
           >
-            <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
-              <button
-                onClick={() => onCloseVoting(true)}
-                className="btn-secondary"
-                style={{ flex: 1, color: 'var(--color-success)', padding: '0.5rem', fontSize: '0.82rem' }}
-              >
-                <Check size={14} />
-                <span>Estender (+2m)</span>
-              </button>
-              <button
-                onClick={() => onCloseVoting(false)}
-                className="btn-primary"
-                style={{ flex: 1, padding: '0.5rem', fontSize: '0.82rem' }}
-              >
-                <span>Puxar Próximo</span>
-                <ArrowRight size={14} />
-              </button>
-            </div>
-
             <button
-              type="button"
-              onClick={() => onCloseVoting(null)}
+              onClick={() => onCloseVoting(true)}
               className="btn-secondary"
-              style={{
-                width: '100%',
-                padding: '0.45rem',
-                fontSize: '0.75rem',
-                color: 'var(--text-muted)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.35rem',
-              }}
+              style={{ flex: 1, color: 'var(--color-success)', padding: '0.5rem', fontSize: '0.82rem' }}
             >
-              <X size={13} />
-              <span>Fechar sem ação (manter tópico e timer atuais)</span>
+              <Check size={14} />
+              <span>Estender (+2m)</span>
+            </button>
+            <button
+              onClick={() => onCloseVoting(false)}
+              className="btn-primary"
+              style={{ flex: 1, padding: '0.5rem', fontSize: '0.82rem' }}
+            >
+              <span>Puxar Próximo</span>
+              <ArrowRight size={14} />
             </button>
           </div>
         )}
