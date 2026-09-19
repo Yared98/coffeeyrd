@@ -14,7 +14,8 @@ export function useCoffeeSocket(sessionId: string | null, facilitatorToken: stri
   const sessionHashRef = useRef<string>((() => {
     let hash = sessionStorage.getItem('coffee_session_hash');
     if (!hash) {
-      hash = 'usr_' + Math.random().toString(36).substring(2, 12);
+      // Usa crypto.randomUUID() para maior entropia e evitar colisões entre participantes
+      hash = 'usr_' + crypto.randomUUID().replace(/-/g, '').substring(0, 16);
       sessionStorage.setItem('coffee_session_hash', hash);
     }
     return hash;
@@ -148,6 +149,13 @@ export function useCoffeeSocket(sessionId: string | null, facilitatorToken: stri
     [send]
   );
 
+  const undoMerge = useCallback(
+    (targetTopicId?: string) => {
+      send('UNDO_MERGE', { target_topic_id: targetTopicId || null });
+    },
+    [send]
+  );
+
   const castRomanVote = useCallback(
     (choice: RomanVoteChoice) => {
       send('CAST_ROMAN_VOTE', { choice });
@@ -178,6 +186,7 @@ export function useCoffeeSocket(sessionId: string | null, facilitatorToken: stri
     updateNotes,
     moveTopicStatus,
     mergeTopics,
+    undoMerge,
     castRomanVote,
     triggerRomanVoting,
     closeRomanVoting,

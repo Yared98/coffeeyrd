@@ -1,40 +1,47 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, User, Sparkles, GitMerge } from 'lucide-react';
+import { Plus, Trash2, User, Sparkles, GitMerge, Undo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Topic } from '../types';
+import { MarkdownDescription } from './MarkdownDescription';
 
 interface IdeationViewProps {
   topics: Topic[];
   isFacilitator: boolean;
+  userName?: string;
+  onEditIdentity?: () => void;
   onAddTopic: (title: string, description?: string, authorName?: string) => void;
   onDeleteTopic: (topicId: string) => void;
   onMergeTopics?: (sourceTopicId: string, targetTopicId: string) => void;
+  onUndoMerge?: (targetTopicId?: string) => void;
 }
 
 export const IdeationView: React.FC<IdeationViewProps> = ({
   topics,
-  isFacilitator: _isFacilitator,
+  isFacilitator,
+  userName,
+  onEditIdentity,
   onAddTopic,
   onDeleteTopic,
   onMergeTopics,
+  onUndoMerge,
 }) => {
   const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [authorName, setAuthorName] = useState(() => localStorage.getItem('coffee_author') || '');
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [draggedTopicId, setDraggedTopicId] = useState<string | null>(null);
   const [dragOverTopicId, setDragOverTopicId] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    if (authorName.trim()) {
-      localStorage.setItem('coffee_author', authorName.trim());
-    }
+    const author = isAnonymous
+      ? t('identity.anonymous', 'Anônimo')
+      : (userName?.trim() || t('identity.anonymous', 'Anônimo'));
     onAddTopic(
       title.trim(),
       description.trim() ? description.trim() : undefined,
-      authorName.trim() || 'Anônimo'
+      author
     );
     setTitle('');
     setDescription('');
@@ -83,13 +90,14 @@ export const IdeationView: React.FC<IdeationViewProps> = ({
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem' }}>
-            <input
-              type="text"
+          <div>
+            <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t('ideation.topic_desc_placeholder')}
+              rows={2}
               style={{
+                width: '100%',
                 padding: '0.55rem 0.85rem',
                 borderRadius: 'var(--radius-md)',
                 border: '1px solid var(--border-subtle)',
@@ -97,28 +105,96 @@ export const IdeationView: React.FC<IdeationViewProps> = ({
                 color: 'var(--text-main)',
                 fontSize: '0.8rem',
                 outline: 'none',
-              }}
-            />
-
-            <input
-              type="text"
-              value={authorName}
-              onChange={(e) => setAuthorName(e.target.value)}
-              placeholder={t('ideation.author_placeholder')}
-              style={{
-                padding: '0.55rem 0.85rem',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-subtle)',
-                background: 'var(--bg-input)',
-                color: 'var(--text-main)',
-                fontSize: '0.8rem',
-                outline: 'none',
-                width: '180px',
+                resize: 'vertical',
+                minHeight: '40px',
+                fontFamily: 'inherit',
               }}
             />
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
+              marginTop: '0.25rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  fontSize: '0.78rem',
+                  color: isAnonymous ? 'var(--text-muted)' : 'var(--text-main)',
+                }}
+              >
+                <div
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: '50%',
+                    background: isAnonymous ? 'var(--bg-subtle)' : 'var(--color-primary-subtle)',
+                    color: isAnonymous ? 'var(--text-muted)' : 'var(--color-primary)',
+                    border: isAnonymous ? '1px solid var(--border-subtle)' : '1px solid var(--border-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                  }}
+                >
+                  {isAnonymous ? '?' : (userName?.charAt(0).toUpperCase() || '?')}
+                </div>
+                <span>
+                  {t('identity.proposing_as', 'Propondo como')}:{' '}
+                  <strong style={{ color: isAnonymous ? 'var(--text-muted)' : 'var(--color-primary)' }}>
+                    {isAnonymous ? t('identity.anonymous', 'Anônimo') : (userName || t('identity.anonymous', 'Anônimo'))}
+                  </strong>
+                </span>
+                {!isAnonymous && onEditIdentity && (
+                  <button
+                    type="button"
+                    onClick={onEditIdentity}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.72rem',
+                      textDecoration: 'underline',
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
+                  >
+                    ({t('identity.edit_identity', 'Alterar')})
+                  </button>
+                )}
+              </div>
+
+              <label
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  fontSize: '0.75rem',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isAnonymous}
+                  onChange={(e) => setIsAnonymous(e.target.checked)}
+                  style={{ cursor: 'pointer', accentColor: 'var(--color-primary)' }}
+                />
+                <span>{t('identity.post_anonymously', 'Propor como anônimo')}</span>
+              </label>
+            </div>
+
             <button
               type="submit"
               disabled={!title.trim()}
@@ -252,22 +328,60 @@ export const IdeationView: React.FC<IdeationViewProps> = ({
                   )}
 
                   <div>
+                    {Boolean(topic.merged_count && topic.merged_count > 0) && (
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          color: 'var(--color-primary)',
+                          background: 'var(--color-primary-subtle)',
+                          border: '1px solid var(--border-primary)',
+                          padding: '0.15rem 0.45rem',
+                          borderRadius: 'var(--radius-full)',
+                          marginBottom: '0.45rem',
+                        }}
+                      >
+                        <GitMerge size={11} />
+                        <span>
+                          {topic.merged_count === 1
+                            ? t('merge.merged_badge', { count: topic.merged_count })
+                            : t('merge.merged_badge_plural', { count: topic.merged_count })}
+                        </span>
+                        {isFacilitator && onUndoMerge && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onUndoMerge(topic.id);
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '0 0.15rem',
+                              marginLeft: '0.2rem',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.2rem',
+                              color: 'var(--color-primary)',
+                              textDecoration: 'underline',
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                            }}
+                            title={t('merge.separate_topics')}
+                          >
+                            <Undo2 size={10} />
+                            {t('merge.undo_btn')}
+                          </button>
+                        )}
+                      </div>
+                    )}
                     <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
                       {topic.title}
                     </h3>
-                    {topic.description && (
-                      <p
-                        style={{
-                          fontSize: '0.8rem',
-                          color: 'var(--text-muted)',
-                          marginTop: '0.4rem',
-                          lineHeight: 1.4,
-                          whiteSpace: 'pre-line',
-                        }}
-                      >
-                        {topic.description}
-                      </p>
-                    )}
+                    <MarkdownDescription content={topic.description} />
                   </div>
 
                   <div

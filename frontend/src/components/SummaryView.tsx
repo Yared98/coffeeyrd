@@ -3,6 +3,7 @@ import { Download, Copy, Check, Home, Coffee, CheckCircle2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next';
 import confetti from 'canvas-confetti';
 import type { Session, Topic } from '../types';
+import { MarkdownDescription } from './MarkdownDescription';
 
 interface SummaryViewProps {
   session: Session;
@@ -130,11 +131,12 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
                     {topic.vote_count} votos
                   </span>
                 </div>
-                {topic.description && (
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.35rem', margin: '0.35rem 0' }}>
-                    {topic.description}
-                  </p>
-                )}
+                <MarkdownDescription
+                  content={topic.description}
+                  fontSize="0.8rem"
+                  maxCollapsedHeight={70}
+                  maxLengthThreshold={120}
+                />
                 {topic.notes && (
                   <div
                     style={{

@@ -20,6 +20,7 @@ import {
   removeRecentSession,
   type RecentSession,
 } from '../utils/recentSessions';
+import { getUserProfileName, saveUserProfileName } from '../utils/userProfile';
 
 interface HomeViewProps {
   onCreateSession: (title: string, maxVotes: number, defaultTimeboxSeconds: number) => Promise<void>;
@@ -37,6 +38,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const { t, i18n } = useTranslation();
   const [tab, setTab] = useState<'create' | 'join'>('create');
   const [title, setTitle] = useState('');
+  const [userName, setUserName] = useState(() => getUserProfileName());
   const [maxVotes, setMaxVotes] = useState(3);
   const [timeboxMins, setTimeboxMins] = useState(5);
   const [joinCode, setJoinCode] = useState('');
@@ -70,6 +72,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
+    if (userName.trim()) {
+      saveUserProfileName(userName.trim());
+    }
     setIsSubmitting(true);
     try {
       await onCreateSession(title.trim(), maxVotes, timeboxMins * 60);
@@ -81,6 +86,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!joinCode.trim()) return;
+    if (userName.trim()) {
+      saveUserProfileName(userName.trim());
+    }
     let clean = joinCode.trim();
     if (clean.includes('/session/')) {
       const parts = clean.split('/session/');
@@ -253,6 +261,29 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.4rem' }}>
+                  {t('identity.name_label', 'Seu Nome ou Apelido')}
+                </label>
+                <input
+                  type="text"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  placeholder={t('identity.name_placeholder', 'Como o time te conhece?')}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'var(--bg-input)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.875rem',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.4rem' }}>
                   {t('home.session_title_label')}
                 </label>
                 <input
@@ -326,9 +357,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
               <button
                 type="submit"
-                disabled={isSubmitting || !title.trim()}
+                disabled={isSubmitting || !title.trim() || !userName.trim()}
                 className="btn-primary"
-                style={{ padding: '0.75rem', marginTop: '0.5rem', width: '100%', opacity: isSubmitting ? 0.7 : 1 }}
+                style={{ padding: '0.75rem', marginTop: '0.5rem', width: '100%', opacity: (isSubmitting || !userName.trim()) ? 0.7 : 1 }}
               >
                 <span>{isSubmitting ? 'Iniciando...' : t('home.create_btn')}</span>
                 <ArrowRight size={16} />
@@ -336,6 +367,29 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </form>
           ) : (
             <form onSubmit={handleJoin} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.4rem' }}>
+                  {t('identity.name_label', 'Seu Nome ou Apelido')}
+                </label>
+                <input
+                  type="text"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  placeholder={t('identity.name_placeholder', 'Como o time te conhece?')}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'var(--bg-input)',
+                    color: 'var(--text-main)',
+                    fontSize: '0.875rem',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+
               <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.4rem' }}>
                   Código ou Link da Reunião
@@ -361,9 +415,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
               <button
                 type="submit"
-                disabled={!joinCode.trim()}
+                disabled={!joinCode.trim() || !userName.trim()}
                 className="btn-primary"
-                style={{ padding: '0.75rem', marginTop: '0.5rem', width: '100%' }}
+                style={{ padding: '0.75rem', marginTop: '0.5rem', width: '100%', opacity: !userName.trim() ? 0.7 : 1 }}
               >
                 <span>{t('home.join_btn')}</span>
                 <ArrowRight size={16} />

@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Undo2, X } from 'lucide-react';
 import { useCoffeeSocket } from './hooks/useCoffeeSocket';
 import { Header } from './components/Header';
 import { HomeView } from './components/HomeView';
@@ -8,7 +10,9 @@ import { DiscussionView } from './components/DiscussionView';
 import { SummaryView } from './components/SummaryView';
 import { RomanVoteModal } from './components/RomanVoteModal';
 import { McpModal } from './components/McpModal';
+import { IdentityModal } from './components/IdentityModal';
 import { saveRecentSession } from './utils/recentSessions';
+import { getUserProfileName } from './utils/userProfile';
 
 export function App() {
   const [sessionId, setSessionId] = useState<string | null>(() => {
@@ -34,6 +38,14 @@ export function App() {
   });
 
   const [showMcp, setShowMcp] = useState(false);
+  const [userName, setUserName] = useState<string>(() => getUserProfileName());
+  const [showIdentityModal, setShowIdentityModal] = useState(false);
+
+  useEffect(() => {
+    if (sessionId && !userName) {
+      setShowIdentityModal(true);
+    }
+  }, [sessionId, userName]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -43,6 +55,10 @@ export function App() {
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
+
+  const { t } = useTranslation();
+  const [showUndoToast, setShowUndoToast] = useState(false);
+  const [undoTargetId, setUndoTargetId] = useState<string | null>(null);
 
   const {
     snapshot,
@@ -56,10 +72,29 @@ export function App() {
     updateNotes,
     moveTopicStatus,
     mergeTopics,
+    undoMerge,
     castRomanVote,
     triggerRomanVoting,
     closeRomanVoting,
   } = useCoffeeSocket(sessionId, facilitatorToken);
+
+  const handleMergeTopics = (sourceId: string, targetId: string) => {
+    mergeTopics(sourceId, targetId);
+    setUndoTargetId(targetId);
+    setShowUndoToast(true);
+  };
+
+  const handleUndoMerge = (targetTopicId?: string) => {
+    undoMerge(targetTopicId || undoTargetId || undefined);
+    setShowUndoToast(false);
+  };
+
+  useEffect(() => {
+    if (showUndoToast) {
+      const timer = setTimeout(() => setShowUndoToast(false), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [showUndoToast]);
 
   useEffect(() => {
     if (snapshot?.session?.title) {
@@ -184,6 +219,8 @@ export function App() {
         session={session}
         isFacilitator={is_facilitator}
         theme={theme}
+        userName={userName}
+        onEditIdentity={() => setShowIdentityModal(true)}
         onToggleTheme={toggleTheme}
         onLeave={handleLeaveSession}
         onExport={handleExport}
@@ -197,9 +234,12 @@ export function App() {
           <IdeationView
             topics={topics}
             isFacilitator={is_facilitator}
+            userName={userName}
+            onEditIdentity={() => setShowIdentityModal(true)}
             onAddTopic={addTopic}
             onDeleteTopic={deleteTopic}
-            onMergeTopics={mergeTopics}
+            onMergeTopics={handleMergeTopics}
+            onUndoMerge={handleUndoMerge}
           />
         )}
 
@@ -208,8 +248,10 @@ export function App() {
             topics={topics}
             userVotedTopicIds={user_voted_topic_ids}
             maxVotes={session.max_votes_per_user}
+            isFacilitator={is_facilitator}
             onToggleVote={toggleVote}
-            onMergeTopics={mergeTopics}
+            onMergeTopics={handleMergeTopics}
+            onUndoMerge={handleUndoMerge}
           />
         )}
 
@@ -248,6 +290,75 @@ export function App() {
       />
 
       <McpModal isOpen={showMcp} onClose={() => setShowMcp(false)} />
+
+      <IdentityModal
+        isOpen={showIdentityModal}
+        onClose={() => setShowIdentityModal(false)}
+        onSave={(name) => {
+          setUserName(name);
+          setShowIdentityModal(false);
+        }}
+        isMandatory={!userName}
+      />
+
+      {/* Toast Flutuante de Feedback com Desfazer (Undo Merge) */}
+      {showUndoToast && is_facilitator && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '1.5rem',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'var(--bg-surface-elevated, #1e293b)',
+            border: '1px solid var(--border-primary, rgba(99, 102, 241, 0.4))',
+            borderRadius: 'var(--radius-full, 9999px)',
+            padding: '0.5rem 1rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+            zIndex: 1000,
+            animation: 'fadeIn 0.2s ease-out',
+          }}
+        >
+          <span style={{ fontSize: '0.82rem', color: 'var(--text-main)', fontWeight: 500 }}>
+            {t('merge.toast_success')}
+          </span>
+          <button
+            onClick={() => handleUndoMerge()}
+            className="btn-primary"
+            style={{
+              padding: '0.25rem 0.65rem',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              borderRadius: 'var(--radius-full, 9999px)',
+              cursor: 'pointer',
+            }}
+            title={t('merge.undo_tooltip')}
+          >
+            <Undo2 size={13} />
+            {t('merge.undo_btn')}
+          </button>
+          <button
+            onClick={() => setShowUndoToast(false)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              padding: '0.2rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+            }}
+            title="Fechar"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

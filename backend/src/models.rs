@@ -97,6 +97,8 @@ pub struct Topic {
     pub duration_seconds_spent: u32,
     pub notes: String,
     pub created_at: String,
+    #[serde(default)]
+    pub merged_count: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

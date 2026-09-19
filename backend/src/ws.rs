@@ -115,6 +115,10 @@ async fn handle_socket(
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = receiver.next().await {
             if let Message::Text(text) = msg {
+                // Limite de tamanho de payload: previne DoS por mensagens gigantes
+                if text.len() > 65_536 {
+                    continue;
+                }
                 if let Ok(client_msg) = serde_json::from_str::<ClientMessage>(&text) {
                     process_client_message(
                         &state_for_recv,
@@ -299,8 +303,11 @@ async fn process_client_message(
         }
 
         ClientMessage::UpdateTopicNotes { topic_id, notes } => {
-            let _ = db::update_topic_notes(&conn, &topic_id, &notes);
-            broadcast_snapshot(state, session_id);
+            // Apenas facilitador pode editar notas de tópicos
+            if is_facilitator {
+                let _ = db::update_topic_notes(&conn, &topic_id, &notes);
+                broadcast_snapshot(state, session_id);
+            }
         }
 
         ClientMessage::MoveTopicStatus { topic_id, status } => {
@@ -336,8 +343,19 @@ async fn process_client_message(
             source_topic_id,
             target_topic_id,
         } => {
-            let _ = db::merge_topics(&conn, session_id, &source_topic_id, &target_topic_id);
-            broadcast_snapshot(state, session_id);
+            // Apenas facilitador pode mesclar tópicos
+            if is_facilitator {
+                let _ = db::merge_topics(&conn, session_id, &source_topic_id, &target_topic_id);
+                broadcast_snapshot(state, session_id);
+            }
+        }
+
+        ClientMessage::UndoMerge { target_topic_id } => {
+            // Apenas facilitador pode reverter mesclas
+            if is_facilitator {
+                let _ = db::undo_merge(&conn, session_id, target_topic_id.as_deref());
+                broadcast_snapshot(state, session_id);
+            }
         }
 
         ClientMessage::CastRomanVote { choice } => {

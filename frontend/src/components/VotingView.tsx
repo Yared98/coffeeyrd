@@ -1,22 +1,27 @@
 import React, { useState } from 'react';
-import { ThumbsUp, User, GitMerge } from 'lucide-react';
+import { ThumbsUp, User, GitMerge, Undo2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Topic } from '../types';
+import { MarkdownDescription } from './MarkdownDescription';
 
 interface VotingViewProps {
   topics: Topic[];
   userVotedTopicIds: string[];
   maxVotes: number;
+  isFacilitator?: boolean;
   onToggleVote: (topicId: string) => void;
   onMergeTopics?: (sourceTopicId: string, targetTopicId: string) => void;
+  onUndoMerge?: (targetTopicId?: string) => void;
 }
 
 export const VotingView: React.FC<VotingViewProps> = ({
   topics,
   userVotedTopicIds,
   maxVotes,
+  isFacilitator,
   onToggleVote,
   onMergeTopics,
+  onUndoMerge,
 }) => {
   const { t } = useTranslation();
   const [draggedTopicId, setDraggedTopicId] = useState<string | null>(null);
@@ -171,22 +176,60 @@ export const VotingView: React.FC<VotingViewProps> = ({
               )}
 
               <div>
+                {Boolean(topic.merged_count && topic.merged_count > 0) && (
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      color: 'var(--color-primary)',
+                      background: 'var(--color-primary-subtle)',
+                      border: '1px solid var(--border-primary)',
+                      padding: '0.15rem 0.45rem',
+                      borderRadius: 'var(--radius-full)',
+                      marginBottom: '0.45rem',
+                    }}
+                  >
+                    <GitMerge size={11} />
+                    <span>
+                      {topic.merged_count === 1
+                        ? t('merge.merged_badge', { count: topic.merged_count })
+                        : t('merge.merged_badge_plural', { count: topic.merged_count })}
+                    </span>
+                    {isFacilitator && onUndoMerge && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUndoMerge(topic.id);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '0 0.15rem',
+                          marginLeft: '0.2rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.2rem',
+                          color: 'var(--color-primary)',
+                          textDecoration: 'underline',
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                        }}
+                        title={t('merge.separate_topics')}
+                      >
+                        <Undo2 size={10} />
+                        {t('merge.undo_btn')}
+                      </button>
+                    )}
+                  </div>
+                )}
                 <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
                   {topic.title}
                 </h3>
-                {topic.description && (
-                  <p
-                    style={{
-                      fontSize: '0.8rem',
-                      color: 'var(--text-muted)',
-                      marginTop: '0.4rem',
-                      lineHeight: 1.4,
-                      whiteSpace: 'pre-line',
-                    }}
-                  >
-                    {topic.description}
-                  </p>
-                )}
+                <MarkdownDescription content={topic.description} />
               </div>
 
               <div

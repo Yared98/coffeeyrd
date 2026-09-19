@@ -62,6 +62,10 @@ pub enum ClientMessage {
         source_topic_id: String,
         target_topic_id: String,
     },
+    #[serde(rename = "UNDO_MERGE")]
+    UndoMerge {
+        target_topic_id: Option<String>,
+    },
     #[serde(rename = "CAST_ROMAN_VOTE")]
     CastRomanVote { choice: RomanVoteChoice },
     #[serde(rename = "TRIGGER_ROMAN_VOTING")]

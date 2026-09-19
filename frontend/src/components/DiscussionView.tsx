@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Topic, TopicStatus } from '../types';
+import { MarkdownDescription } from './MarkdownDescription';
 
 interface DiscussionViewProps {
   topics: Topic[];
@@ -180,11 +181,12 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                     </span>
                   </div>
 
-                  {topic.description && (
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0, whiteSpace: 'pre-line' }}>
-                      {topic.description}
-                    </p>
-                  )}
+                  <MarkdownDescription
+                    content={topic.description}
+                    fontSize="0.75rem"
+                    maxCollapsedHeight={54}
+                    maxLengthThreshold={90}
+                  />
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.25rem' }}>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -292,11 +294,12 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0.25rem 0 0', color: 'var(--text-main)' }}>
                   {activeTopic.title}
                 </h2>
-                {activeTopic.description && (
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.4rem', lineHeight: 1.5, whiteSpace: 'pre-line' }}>
-                    {activeTopic.description}
-                  </p>
-                )}
+                <MarkdownDescription
+                  content={activeTopic.description}
+                  fontSize="0.85rem"
+                  maxCollapsedHeight={95}
+                  maxLengthThreshold={160}
+                />
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.65rem' }}>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                     <User size={13} />

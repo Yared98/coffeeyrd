@@ -156,23 +156,60 @@ async fn main() {
         db::init_db(&conn).expect("Falha ao inicializar tabelas");
     }
 
-    let state = AppState::new(db_path);
+    let state = AppState::new(db_path.clone());
+
+    // Rotina periódica de auto-purge para higienização de sessões antigas (Padrão: 60 dias)
+    // Aceita RETENTION_DAYS unificada ou SESSION_RETENTION_DAYS específica
+    let retention_days: i64 = std::env::var("RETENTION_DAYS")
+        .or_else(|_| std::env::var("SESSION_RETENTION_DAYS"))
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(60);
+
+    let purge_db_path = db_path.clone();
+    tokio::spawn(async move {
+        // Checar na inicialização e a cada 24 horas
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(24 * 3600));
+        loop {
+            interval.tick().await;
+            match Connection::open(&purge_db_path)
+                .and_then(|conn| db::cleanup_expired_sessions(&conn, retention_days))
+            {
+                Ok(count) if count > 0 => {
+                    tracing::info!(
+                        purged_sessions = count,
+                        retention_days = retention_days,
+                        "Auto-purge: sessões com mais de {} dias removidas com sucesso",
+                        retention_days
+                    );
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    tracing::warn!(error = %e, "Erro ao executar rotina de auto-purge de sessões no CoffeeYrd");
+                }
+            }
+        }
+    });
 
     let cors = CorsLayer::new()
         .allow_origin(tower_http::cors::Any)
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers(tower_http::cors::Any);
 
-    let dist_path = PathBuf::from("../frontend/dist");
+    let static_dir = std::env::var("STATIC_DIR").unwrap_or_else(|_| "../frontend/dist".to_string());
+    let static_service = ServeDir::new(PathBuf::from(&static_dir))
+        .fallback(get(spa_fallback));
 
     let app = Router::new()
+        .route("/health", get(health_check))
+        .route("/robots.txt", get(robots_txt_handler))
         .route("/api/sessions", post(create_session_handler))
         .route("/api/sessions/{id}", get(get_session_handler))
         .route("/api/sessions/{id}/export", get(export_session_handler))
         .route("/ws/session/{id}", get(ws::ws_handler))
         .route("/mcp", post(mcp::mcp_handler))
+        .fallback_service(static_service)
         .layer(cors)
-        .fallback_service(ServeDir::new(dist_path))
         .with_state(state);
 
     let port: u16 = std::env::var("PORT")
@@ -181,8 +218,47 @@ async fn main() {
         .unwrap_or(8082);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
-    info!("☕ CoffeeYrd Backend rodando em http://{}", addr);
+    info!("☕ CoffeeYrd backend rodando em http://{}", addr);
+    info!("🔗 WebSocket disponível em ws://{}/ws/session/{{id}}", addr);
+    info!("🤖 Servidor MCP disponível em http://{}/mcp", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
+}
+
+async fn health_check() -> &'static str {
+    "OK"
+}
+
+async fn robots_txt_handler() -> impl IntoResponse {
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, "text/plain; charset=utf-8"),
+            (header::HeaderName::from_static("x-robots-tag"), "noindex, nofollow, noarchive"),
+        ],
+        "# Bloqueio estrito de rastreadores e motores de busca\nUser-agent: *\nDisallow: /\n",
+    )
+}
+
+async fn spa_fallback() -> impl IntoResponse {
+    let static_dir = std::env::var("STATIC_DIR").unwrap_or_else(|_| "../frontend/dist".to_string());
+    let index_file = PathBuf::from(&static_dir).join("index.html");
+    match tokio::fs::read_to_string(index_file).await {
+        Ok(html) => (
+            StatusCode::OK,
+            [
+                (header::CONTENT_TYPE, "text/html; charset=utf-8"),
+                (header::HeaderName::from_static("x-robots-tag"), "noindex, nofollow, noarchive"),
+                (header::HeaderName::from_static("referrer-policy"), "no-referrer"),
+            ],
+            html,
+        )
+            .into_response(),
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            "Frontend not built or index.html not found",
+        )
+            .into_response(),
+    }
 }

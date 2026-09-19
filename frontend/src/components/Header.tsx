@@ -25,6 +25,8 @@ interface HeaderProps {
   session: Session;
   isFacilitator: boolean;
   theme: 'light' | 'dark';
+  userName?: string;
+  onEditIdentity?: () => void;
   onToggleTheme: () => void;
   onLeave: () => void;
   onExport: () => void;
@@ -37,6 +39,8 @@ export const Header: React.FC<HeaderProps> = ({
   session,
   isFacilitator,
   theme,
+  userName,
+  onEditIdentity,
   onToggleTheme,
   onLeave,
   onExport,
@@ -173,7 +177,9 @@ export const Header: React.FC<HeaderProps> = ({
                   border: '1px solid var(--border-primary)',
                   color: 'var(--color-primary)',
                   flexShrink: 0,
+                  cursor: 'help',
                 }}
+                title={t('nav.facilitator_tooltip', 'Você é o Facilitador desta sessão')}
               >
                 {t('nav.facilitator')}
               </span>
@@ -225,6 +231,47 @@ export const Header: React.FC<HeaderProps> = ({
             <Bot size={13} />
             <span>MCP</span>
           </button>
+
+          {/* Identidade do Usuário Conectado */}
+          {userName && (
+            <button
+              onClick={onEditIdentity}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                background: 'var(--bg-subtle)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-main)',
+                padding: '0.28rem 0.65rem',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+              title={t('identity.edit_identity', 'Alterar meu nome')}
+            >
+              <div
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                  background: 'var(--color-primary-subtle)',
+                  color: 'var(--color-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.7rem',
+                  fontWeight: 800,
+                }}
+              >
+                {userName.charAt(0).toUpperCase()}
+              </div>
+              <span className="header-btn-text" style={{ maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {userName}
+              </span>
+            </button>
+          )}
 
           {/* Alternador de Idioma */}
           <button

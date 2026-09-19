@@ -4,6 +4,8 @@ use crate::models::{RomanVoteChoice, Session, SessionPhase, Topic, TopicStatus};
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension, Result};
 
+use ulid::Ulid;
+
 pub fn init_db(conn: &Connection) -> Result<()> {
     conn.execute_batch(
         "
@@ -56,9 +58,44 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             PRIMARY KEY (session_id, topic_id, voter_hash),
             FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS topic_merges (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            source_topic_id TEXT NOT NULL,
+            target_topic_id TEXT NOT NULL,
+            source_title TEXT NOT NULL,
+            source_description TEXT,
+            source_author_name TEXT NOT NULL,
+            source_author_session_hash TEXT NOT NULL,
+            source_status TEXT NOT NULL,
+            source_vote_count INTEGER NOT NULL,
+            source_duration_seconds_spent INTEGER NOT NULL,
+            source_notes TEXT NOT NULL,
+            source_created_at TEXT NOT NULL,
+            target_prev_description TEXT,
+            target_prev_notes TEXT,
+            target_prev_author_name TEXT NOT NULL,
+            target_prev_vote_count INTEGER NOT NULL,
+            transferred_votes_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+        );
         ",
     )?;
     Ok(())
+}
+
+/// Remove sessões mais antigas que `retention_days` dias.
+/// Retorna o número de sessões removidas.
+/// Tópicos, votos e roman_votes são removidos automaticamente via ON DELETE CASCADE.
+pub fn cleanup_expired_sessions(conn: &Connection, retention_days: i64) -> Result<usize> {
+    let cutoff = format!("-{} days", retention_days);
+    let count = conn.execute(
+        "DELETE FROM sessions WHERE created_at < datetime('now', ?1)",
+        params![cutoff],
+    )?;
+    Ok(count)
 }
 
 pub fn create_session(
@@ -130,10 +167,11 @@ pub fn get_session(conn: &Connection, id: &str) -> Result<Option<(Session, Strin
 
 pub fn get_topics(conn: &Connection, session_id: &str) -> Result<Vec<Topic>> {
     let mut stmt = conn.prepare(
-        "SELECT id, session_id, title, description, author_name, author_session_hash,
-                status, vote_count, duration_seconds_spent, notes, created_at
-         FROM topics WHERE session_id = ?1
-         ORDER BY vote_count DESC, created_at ASC",
+        "SELECT t.id, t.session_id, t.title, t.description, t.author_name, t.author_session_hash,
+                t.status, t.vote_count, t.duration_seconds_spent, t.notes, t.created_at,
+                (SELECT COUNT(*) FROM topic_merges m WHERE m.target_topic_id = t.id AND m.session_id = t.session_id) as merged_count
+         FROM topics t WHERE t.session_id = ?1
+         ORDER BY t.vote_count DESC, t.created_at ASC",
     )?;
 
     let rows = stmt.query_map(params![session_id], |row| {
@@ -150,6 +188,7 @@ pub fn get_topics(conn: &Connection, session_id: &str) -> Result<Vec<Topic>> {
             duration_seconds_spent: row.get(8)?,
             notes: row.get(9)?,
             created_at: row.get(10)?,
+            merged_count: row.get(11)?,
         })
     })?;
 
@@ -340,46 +379,83 @@ pub fn merge_topics(
         return Ok(());
     }
 
-    let mut stmt = conn.prepare(
-        "SELECT id, title, description, author_name, notes FROM topics WHERE session_id = ?1 AND id = ?2",
-    )?;
-
-    let source = stmt
-        .query_row(params![session_id, source_id], |r| {
+    // Busca source e target antes de abrir transação
+    let source: Option<(
+        String,
+        String,
+        Option<String>,
+        String,
+        String,
+        String,
+        u32,
+        u32,
+        String,
+        String,
+    )> = {
+        let mut stmt = conn.prepare(
+            "SELECT id, title, description, author_name, author_session_hash, status, vote_count, duration_seconds_spent, notes, created_at
+             FROM topics WHERE session_id = ?1 AND id = ?2",
+        )?;
+        stmt.query_row(params![session_id, source_id], |r| {
             Ok((
                 r.get::<_, String>(0)?,
                 r.get::<_, String>(1)?,
                 r.get::<_, Option<String>>(2)?,
                 r.get::<_, String>(3)?,
                 r.get::<_, String>(4)?,
+                r.get::<_, String>(5)?,
+                r.get::<_, u32>(6)?,
+                r.get::<_, u32>(7)?,
+                r.get::<_, String>(8)?,
+                r.get::<_, String>(9)?,
             ))
         })
-        .optional()?;
+        .optional()?
+    };
 
-    let target = stmt
-        .query_row(params![session_id, target_id], |r| {
+    let target: Option<(String, String, Option<String>, String, String, u32)> = {
+        let mut stmt = conn.prepare(
+            "SELECT id, title, description, author_name, notes, vote_count
+             FROM topics WHERE session_id = ?1 AND id = ?2",
+        )?;
+        stmt.query_row(params![session_id, target_id], |r| {
             Ok((
                 r.get::<_, String>(0)?,
                 r.get::<_, String>(1)?,
                 r.get::<_, Option<String>>(2)?,
                 r.get::<_, String>(3)?,
                 r.get::<_, String>(4)?,
+                r.get::<_, u32>(5)?,
             ))
         })
-        .optional()?;
+        .optional()?
+    };
 
-    if let (Some((_, s_title, s_desc, s_author, s_notes)), Some((_, _t_title, t_desc, t_author, t_notes))) =
-        (source, target)
+    if let (
+        Some((
+            s_id,
+            s_title,
+            s_desc,
+            s_author,
+            s_hash,
+            s_status,
+            s_votes,
+            s_duration,
+            s_notes,
+            s_created_at,
+        )),
+        Some((_t_id, _t_title, t_desc, t_author, t_notes, t_votes)),
+    ) = (source, target)
     {
         // Concatena descrições com créditos
         let merged_desc = {
             let mut parts = Vec::new();
-            if let Some(td) = t_desc {
+            if let Some(ref td) = t_desc {
                 if !td.trim().is_empty() {
-                    parts.push(td);
+                    parts.push(td.clone());
                 }
             }
-            let source_info = if let Some(sd) = s_desc {
+            let source_info = if let Some(ref sd) = s_desc {
                 if !sd.trim().is_empty() {
                     format!("[Mesclado de {}: {} - {}]", s_author, s_title, sd)
                 } else {
@@ -397,74 +473,294 @@ pub fn merge_topics(
             if !t_notes.trim().is_empty() {
                 format!("{}\n\n{}", t_notes, s_notes)
             } else {
-                s_notes
+                s_notes.clone()
             }
         } else {
-            t_notes
+            t_notes.clone()
         };
 
         // Combina autores
         let merged_author = if t_author.contains(&s_author) {
-            t_author
+            t_author.clone()
         } else {
             format!("{}, {}", t_author, s_author)
         };
 
+        // --- Transação atômica: todas as mutações ou nenhuma ---
+        let tx = conn.unchecked_transaction()?;
+
         // Atualiza tópico destino
-        conn.execute(
+        tx.execute(
             "UPDATE topics SET description = ?1, notes = ?2, author_name = ?3 WHERE id = ?4 AND session_id = ?5",
             params![merged_desc, merged_notes, merged_author, target_id, session_id],
         )?;
 
-        // Migra votos do source para target
-        let mut v_stmt = conn.prepare(
-            "SELECT voter_hash, created_at FROM votes WHERE session_id = ?1 AND topic_id = ?2",
-        )?;
-        let source_voters: Vec<(String, String)> = v_stmt
-            .query_map(params![session_id, source_id], |r| {
-                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-            })?
-            .filter_map(|r| r.ok())
-            .collect();
+        // Busca votos do source
+        let source_voters: Vec<(String, String)> = {
+            let mut v_stmt = tx.prepare(
+                "SELECT voter_hash, created_at FROM votes WHERE session_id = ?1 AND topic_id = ?2",
+            )?;
+            let rows = v_stmt
+                .query_map(params![session_id, source_id], |r| {
+                    Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+                })?
+                .filter_map(|r| r.ok())
+                .collect::<Vec<_>>();
+            rows
+        };
 
+        // Migra votos únicos do source para target registrando os que foram transferidos
+        let mut transferred_voters: Vec<(String, String)> = Vec::new();
         for (v_hash, v_created) in source_voters {
-            let already_voted_target: i64 = conn.query_row(
+            let already_voted_target: i64 = tx.query_row(
                 "SELECT COUNT(*) FROM votes WHERE session_id = ?1 AND topic_id = ?2 AND voter_hash = ?3",
                 params![session_id, target_id, v_hash],
                 |r| r.get(0),
             )?;
             if already_voted_target == 0 {
-                conn.execute(
+                tx.execute(
                     "INSERT INTO votes (session_id, topic_id, voter_hash, created_at) VALUES (?1, ?2, ?3, ?4)",
                     params![session_id, target_id, v_hash, v_created],
                 )?;
+                transferred_voters.push((v_hash, v_created));
             }
         }
 
-        // Deleta votos associados ao source
-        conn.execute(
+        // Deleta votos do source
+        tx.execute(
             "DELETE FROM votes WHERE session_id = ?1 AND topic_id = ?2",
             params![session_id, source_id],
         )?;
 
         // Recalcula total de votos do target
-        let total_target_votes: i64 = conn.query_row(
+        let total_target_votes: i64 = tx.query_row(
             "SELECT COUNT(*) FROM votes WHERE session_id = ?1 AND topic_id = ?2",
             params![session_id, target_id],
             |r| r.get(0),
         )?;
-        conn.execute(
+        tx.execute(
             "UPDATE topics SET vote_count = ?1 WHERE id = ?2",
             params![total_target_votes, target_id],
         )?;
 
+        // Salva snapshot em topic_merges para permitir reversão atômica em caso de falha ou engano
+        let merge_record_id = Ulid::new().to_string();
+        let transferred_json =
+            serde_json::to_string(&transferred_voters).unwrap_or_else(|_| "[]".to_string());
+        let now = Utc::now().to_rfc3339();
+
+        tx.execute(
+            "INSERT INTO topic_merges (
+                id, session_id, source_topic_id, target_topic_id,
+                source_title, source_description, source_author_name, source_author_session_hash,
+                source_status, source_vote_count, source_duration_seconds_spent, source_notes, source_created_at,
+                target_prev_description, target_prev_notes, target_prev_author_name, target_prev_vote_count,
+                transferred_votes_json, created_at
+            ) VALUES (
+                ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19
+            )",
+            params![
+                merge_record_id,
+                session_id,
+                s_id,
+                target_id,
+                s_title,
+                s_desc,
+                s_author,
+                s_hash,
+                s_status,
+                s_votes,
+                s_duration,
+                s_notes,
+                s_created_at,
+                t_desc,
+                t_notes,
+                t_author,
+                t_votes,
+                transferred_json,
+                now
+            ],
+        )?;
+
         // Deleta o tópico de origem
-        conn.execute(
+        tx.execute(
             "DELETE FROM topics WHERE id = ?1 AND session_id = ?2",
             params![source_id, session_id],
         )?;
+
+        tx.commit()?;
     }
 
     Ok(())
 }
 
+/// Reverte uma mescla realizada anteriormente (Undo Merge).
+/// Restaura o tópico de origem, seus votos estornados e o estado prévio do tópico destino.
+pub fn undo_merge(
+    conn: &Connection,
+    session_id: &str,
+    target_topic_id: Option<&str>,
+) -> Result<Option<String>> {
+    let merge_record = if let Some(t_id) = target_topic_id {
+        let mut stmt = conn.prepare(
+            "SELECT id, source_topic_id, target_topic_id, source_title, source_description,
+                    source_author_name, source_author_session_hash, source_status, source_vote_count,
+                    source_duration_seconds_spent, source_notes, source_created_at,
+                    target_prev_description, target_prev_notes, target_prev_author_name,
+                    transferred_votes_json
+             FROM topic_merges
+             WHERE session_id = ?1 AND target_topic_id = ?2
+             ORDER BY created_at DESC LIMIT 1",
+        )?;
+        stmt.query_row(params![session_id, t_id], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, Option<String>>(4)?,
+                r.get::<_, String>(5)?,
+                r.get::<_, String>(6)?,
+                r.get::<_, String>(7)?,
+                r.get::<_, u32>(8)?,
+                r.get::<_, u32>(9)?,
+                r.get::<_, String>(10)?,
+                r.get::<_, String>(11)?,
+                r.get::<_, Option<String>>(12)?,
+                r.get::<_, String>(13)?,
+                r.get::<_, String>(14)?,
+                r.get::<_, String>(15)?,
+            ))
+        })
+        .optional()?
+    } else {
+        let mut stmt = conn.prepare(
+            "SELECT id, source_topic_id, target_topic_id, source_title, source_description,
+                    source_author_name, source_author_session_hash, source_status, source_vote_count,
+                    source_duration_seconds_spent, source_notes, source_created_at,
+                    target_prev_description, target_prev_notes, target_prev_author_name,
+                    transferred_votes_json
+             FROM topic_merges
+             WHERE session_id = ?1
+             ORDER BY created_at DESC LIMIT 1",
+        )?;
+        stmt.query_row(params![session_id], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, Option<String>>(4)?,
+                r.get::<_, String>(5)?,
+                r.get::<_, String>(6)?,
+                r.get::<_, String>(7)?,
+                r.get::<_, u32>(8)?,
+                r.get::<_, u32>(9)?,
+                r.get::<_, String>(10)?,
+                r.get::<_, String>(11)?,
+                r.get::<_, Option<String>>(12)?,
+                r.get::<_, String>(13)?,
+                r.get::<_, String>(14)?,
+                r.get::<_, String>(15)?,
+            ))
+        })
+        .optional()?
+    };
+
+    let Some((
+        m_id,
+        s_id,
+        t_id,
+        s_title,
+        s_desc,
+        s_author,
+        s_hash,
+        s_status,
+        _s_votes,
+        s_duration,
+        s_notes,
+        s_created_at,
+        t_prev_desc,
+        t_prev_notes,
+        t_prev_author,
+        transferred_json,
+    )) = merge_record else {
+        return Ok(None);
+    };
+
+    let transferred_voters: Vec<(String, String)> =
+        serde_json::from_str(&transferred_json).unwrap_or_default();
+
+    let tx = conn.unchecked_transaction()?;
+
+    // 1. Restaura o tópico source original
+    tx.execute(
+        "INSERT OR REPLACE INTO topics (
+            id, session_id, title, description, author_name, author_session_hash,
+            status, vote_count, duration_seconds_spent, notes, created_at
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, ?8, ?9, ?10)",
+        params![
+            s_id,
+            session_id,
+            s_title,
+            s_desc,
+            s_author,
+            s_hash,
+            s_status,
+            s_duration,
+            s_notes,
+            s_created_at
+        ],
+    )?;
+
+    // 2. Estorna os votos transferidos
+    for (v_hash, v_created) in &transferred_voters {
+        tx.execute(
+            "DELETE FROM votes WHERE session_id = ?1 AND topic_id = ?2 AND voter_hash = ?3",
+            params![session_id, t_id, v_hash],
+        )?;
+        tx.execute(
+            "INSERT OR REPLACE INTO votes (session_id, topic_id, voter_hash, created_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![session_id, s_id, v_hash, v_created],
+        )?;
+    }
+
+    // 3. Atualiza contagem de votos de source e target
+    let s_votes_count: i64 = tx.query_row(
+        "SELECT COUNT(*) FROM votes WHERE session_id = ?1 AND topic_id = ?2",
+        params![session_id, s_id],
+        |r| r.get(0),
+    )?;
+    tx.execute(
+        "UPDATE topics SET vote_count = ?1 WHERE id = ?2",
+        params![s_votes_count, s_id],
+    )?;
+
+    let t_votes_count: i64 = tx.query_row(
+        "SELECT COUNT(*) FROM votes WHERE session_id = ?1 AND topic_id = ?2",
+        params![session_id, t_id],
+        |r| r.get(0),
+    )?;
+
+    // 4. Restaura os campos do target
+    tx.execute(
+        "UPDATE topics SET description = ?1, notes = ?2, author_name = ?3, vote_count = ?4
+         WHERE id = ?5 AND session_id = ?6",
+        params![
+            t_prev_desc,
+            t_prev_notes,
+            t_prev_author,
+            t_votes_count,
+            t_id,
+            session_id
+        ],
+    )?;
+
+    // 5. Remove o registro da mescla
+    tx.execute("DELETE FROM topic_merges WHERE id = ?1", params![m_id])?;
+
+    tx.commit()?;
+
+    Ok(Some(s_id))
+}

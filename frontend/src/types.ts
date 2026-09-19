@@ -15,6 +15,7 @@ export interface Topic {
   duration_seconds_spent: number;
   notes: string;
   created_at: string;
+  merged_count?: number;
 }
 
 export interface RomanVotingState {
