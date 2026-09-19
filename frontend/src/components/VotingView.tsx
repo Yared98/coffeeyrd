@@ -65,7 +65,7 @@ export const VotingView: React.FC<VotingViewProps> = ({
         </div>
       </div>
 
-      {topics.length > 1 && (
+      {isFacilitator && topics.length > 1 && (
         <div
           style={{
             display: 'flex',
@@ -93,14 +93,15 @@ export const VotingView: React.FC<VotingViewProps> = ({
         {topics.map((topic) => {
           const hasVoted = userVotedTopicIds.includes(topic.id);
           const canVote = hasVoted || votesRemaining > 0;
-          const isOver = dragOverTopicId === topic.id;
-          const isBeingDragged = draggedTopicId === topic.id;
+          const isOver = isFacilitator && dragOverTopicId === topic.id;
+          const isBeingDragged = isFacilitator && draggedTopicId === topic.id;
 
           return (
             <div
               key={topic.id}
-              draggable={true}
+              draggable={Boolean(isFacilitator)}
               onDragStart={(e) => {
+                if (!isFacilitator) return;
                 setDraggedTopicId(topic.id);
                 e.dataTransfer.setData('text/plain', topic.id);
                 e.dataTransfer.effectAllowed = 'move';
@@ -110,6 +111,7 @@ export const VotingView: React.FC<VotingViewProps> = ({
                 setDragOverTopicId(null);
               }}
               onDragOver={(e) => {
+                if (!isFacilitator) return;
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
                 if (draggedTopicId && draggedTopicId !== topic.id && dragOverTopicId !== topic.id) {
@@ -117,10 +119,12 @@ export const VotingView: React.FC<VotingViewProps> = ({
                 }
               }}
               onDragLeave={(e) => {
+                if (!isFacilitator) return;
                 if (e.currentTarget.contains(e.relatedTarget as Node)) return;
                 if (dragOverTopicId === topic.id) setDragOverTopicId(null);
               }}
               onDrop={(e) => {
+                if (!isFacilitator) return;
                 e.preventDefault();
                 setDragOverTopicId(null);
                 const sourceId = e.dataTransfer.getData('text/plain') || draggedTopicId;
@@ -136,7 +140,7 @@ export const VotingView: React.FC<VotingViewProps> = ({
                 justifyContent: 'space-between',
                 gap: '0.85rem',
                 position: 'relative',
-                cursor: 'grab',
+                cursor: isFacilitator ? 'grab' : 'default',
                 opacity: isBeingDragged ? 0.4 : 1,
                 border: isOver
                   ? '2px dashed var(--color-primary)'

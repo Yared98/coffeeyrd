@@ -10,6 +10,7 @@ import {
   FileText,
   Save,
   RotateCcw,
+  Vote,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Topic, TopicStatus } from '../types';
@@ -69,6 +70,17 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
     if (activeTopic) {
       onUpdateNotes(activeTopic.id, notes);
       setIsSaved(true);
+    }
+  };
+
+  const handleFinishAndNext = () => {
+    if (!activeTopic) return;
+    if (toDiscuss.length > 0) {
+      onSelectActiveTopic(toDiscuss[0].id);
+      onControlTimer('RESET');
+      onControlTimer('START');
+    } else {
+      onMoveTopicStatus?.(activeTopic.id, 'DISCUSSED');
     }
   };
 
@@ -362,20 +374,31 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                     </button>
 
                     <button
-                      onClick={onTriggerRomanVoting}
+                      onClick={handleFinishAndNext}
                       className="btn-primary"
-                      style={{ flex: 1, padding: '0.5rem', fontSize: '0.78rem' }}
+                      style={{ flex: 1, padding: '0.5rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                      title={t('discussion.next_topic')}
                     >
                       <span>{t('discussion.next_topic')}</span>
                       <ArrowRight size={14} />
                     </button>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <button
+                      onClick={onTriggerRomanVoting}
+                      className="btn-secondary"
+                      style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.74rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', color: 'var(--color-primary)' }}
+                      title={t('discussion.trigger_roman')}
+                    >
+                      <Vote size={13} />
+                      <span>{t('discussion.trigger_roman')}</span>
+                    </button>
+
                     <button
                       onClick={() => onMoveTopicStatus?.(activeTopic.id, 'TO_DISCUSS')}
                       className="btn-secondary"
-                      style={{ flex: 1, padding: '0.35rem 0.6rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                      style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.74rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}
                       title={t('discussion.return_to_queue')}
                     >
                       <RotateCcw size={13} />
@@ -385,7 +408,7 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                     <button
                       onClick={() => onMoveTopicStatus?.(activeTopic.id, 'DISCUSSED')}
                       className="btn-secondary"
-                      style={{ flex: 1, padding: '0.35rem 0.6rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
+                      style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.74rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}
                       title={t('discussion.conclude_topic')}
                     >
                       <Check size={13} color="var(--color-success)" />

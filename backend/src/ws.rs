@@ -389,7 +389,7 @@ async fn process_client_message(
             }
         }
 
-        ClientMessage::TriggerRomanVoting => {
+        ClientMessage::TriggerRomanVoting {} => {
             if is_facilitator {
                 trigger_roman_voting_flow(state, session_id).await;
             }

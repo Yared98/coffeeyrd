@@ -69,7 +69,7 @@ pub enum ClientMessage {
     #[serde(rename = "CAST_ROMAN_VOTE")]
     CastRomanVote { choice: RomanVoteChoice },
     #[serde(rename = "TRIGGER_ROMAN_VOTING")]
-    TriggerRomanVoting,
+    TriggerRomanVoting {},
     #[serde(rename = "CLOSE_ROMAN_VOTING")]
     CloseRomanVoting { extend: bool },
 }
