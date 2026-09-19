@@ -403,6 +403,38 @@ async fn process_client_message(
                 close_roman_voting_flow(state, session_id, extend).await;
             }
         }
+
+        ClientMessage::TypingIndicator { topic_id, author_name, is_typing } => {
+            let hub = state.get_or_create_hub(session_id);
+            {
+                let mut typing = hub.typing_users.lock().unwrap();
+                if is_typing {
+                    typing.insert(voter_hash.to_string(), (author_name.clone(), topic_id.clone()));
+                } else {
+                    typing.remove(voter_hash);
+                }
+            }
+            // Transmite para TODOS (o próprio remetente também, para evitar estado inconsistente)
+            let _ = hub.tx.send(crate::state::ServerMessage::TypingIndicator {
+                author_name,
+                topic_id,
+                is_typing,
+            });
+
+            // Auto-limpeza após 3s para garantir que "fantasmas" de digitadores sejam removidos
+            if is_typing {
+                let state_clone = state.clone();
+                let session_clone = session_id.to_string();
+                let vh = voter_hash.to_string();
+                tokio::spawn(async move {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+                    let hub = state_clone.get_or_create_hub(&session_clone);
+                    let mut typing = hub.typing_users.lock().unwrap();
+                    // Só remove se ainda estiver presente (pode ter sido renovado ou removido antes)
+                    typing.remove(&vh);
+                });
+            }
+        }
     }
 }
 

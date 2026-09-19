@@ -64,6 +64,7 @@ export function App() {
   const {
     snapshot,
     isConnected,
+    typingUsers,
     addTopic,
     deleteTopic,
     toggleVote,
@@ -77,6 +78,7 @@ export function App() {
     castRomanVote,
     triggerRomanVoting,
     closeRomanVoting,
+    sendTyping,
   } = useCoffeeSocket(sessionId, facilitatorToken);
 
   const handleMergeTopics = (sourceId: string, targetId: string) => {
@@ -279,6 +281,9 @@ export function App() {
             onTriggerRomanVoting={triggerRomanVoting}
             onAdvanceToCompleted={() => changePhase('COMPLETED')}
             onMoveTopicStatus={moveTopicStatus}
+            typingUsers={typingUsers}
+            onSendTyping={sendTyping}
+            currentUserName={userName}
           />
         )}
 

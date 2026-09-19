@@ -3,6 +3,7 @@
 use crate::models::{RomanVoteChoice, RomanVotingState, SessionPhase, SessionSnapshot, TopicStatus};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
 
@@ -26,6 +27,13 @@ pub enum ServerMessage {
     },
     #[serde(rename = "ERROR")]
     Error { message: String },
+    /// Evento de digitação — transmitido para todos exceto o remetente
+    #[serde(rename = "TYPING_INDICATOR")]
+    TypingIndicator {
+        author_name: String,
+        topic_id: String,
+        is_typing: bool,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,6 +80,13 @@ pub enum ClientMessage {
     TriggerRomanVoting {},
     #[serde(rename = "CLOSE_ROMAN_VOTING")]
     CloseRomanVoting { extend: bool },
+    /// Notifica o servidor que o usuário está (ou parou de) digitando
+    #[serde(rename = "TYPING_INDICATOR")]
+    TypingIndicator {
+        topic_id: String,
+        author_name: String,
+        is_typing: bool,
+    },
 }
 
 #[derive(Clone)]
@@ -80,6 +95,8 @@ pub struct SessionHub {
     pub tx: broadcast::Sender<ServerMessage>,
     pub online_count: Arc<Mutex<usize>>,
     pub roman_voting: Arc<Mutex<RomanVotingState>>,
+    /// Map de voter_hash -> (author_name, topic_id) para os que estão digitando
+    pub typing_users: Arc<Mutex<HashMap<String, (String, String)>>>,
 }
 
 #[derive(Clone)]
@@ -106,6 +123,7 @@ impl AppState {
                 tx,
                 online_count: Arc::new(Mutex::new(0)),
                 roman_voting: Arc::new(Mutex::new(RomanVotingState::default())),
+                typing_users: Arc::new(Mutex::new(HashMap::new())),
             };
             self.sessions.insert(session_id.to_string(), hub.clone());
             hub

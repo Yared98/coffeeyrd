@@ -9,6 +9,8 @@ import type {
 export function useCoffeeSocket(sessionId: string | null, facilitatorToken: string | null) {
   const [snapshot, setSnapshot] = useState<SessionSnapshot | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  // Map de topic_id -> author_name[] dos que estão digitando
+  const [typingUsers, setTypingUsers] = useState<Record<string, string[]>>({});
   const socketRef = useRef<WebSocket | null>(null);
 
   const sessionHashRef = useRef<string>((() => {
@@ -69,6 +71,25 @@ export function useCoffeeSocket(sessionId: string | null, facilitatorToken: stri
                 }
               : prev
           );
+        } else if (msg.type === 'TYPING_INDICATOR') {
+          const { topic_id, author_name, is_typing } = msg.payload;
+          setTypingUsers((prev) => {
+            const current = prev[topic_id] || [];
+            if (is_typing) {
+              if (current.includes(author_name)) return prev;
+              return { ...prev, [topic_id]: [...current, author_name] };
+            } else {
+              const filtered = current.filter((n) => n !== author_name);
+              if (filtered.length === current.length) return prev; // sem mudança
+              const updated = { ...prev };
+              if (filtered.length === 0) {
+                delete updated[topic_id];
+              } else {
+                updated[topic_id] = filtered;
+              }
+              return updated;
+            }
+          });
         }
       } catch (err) {
         console.error('Falha ao processar mensagem WS:', err);
@@ -179,9 +200,17 @@ export function useCoffeeSocket(sessionId: string | null, facilitatorToken: stri
     [send]
   );
 
+  const sendTyping = useCallback(
+    (topicId: string, authorName: string, isTyping: boolean) => {
+      send('TYPING_INDICATOR', { topic_id: topicId, author_name: authorName, is_typing: isTyping });
+    },
+    [send]
+  );
+
   return {
     snapshot,
     isConnected,
+    typingUsers,
     addTopic,
     deleteTopic,
     toggleVote,
@@ -195,5 +224,6 @@ export function useCoffeeSocket(sessionId: string | null, facilitatorToken: stri
     castRomanVote,
     triggerRomanVoting,
     closeRomanVoting,
+    sendTyping,
   };
 }

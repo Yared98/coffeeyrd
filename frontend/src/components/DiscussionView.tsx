@@ -29,6 +29,9 @@ interface DiscussionViewProps {
   onTriggerRomanVoting: () => void;
   onAdvanceToCompleted: () => void;
   onMoveTopicStatus?: (topicId: string, status: TopicStatus) => void;
+  typingUsers?: Record<string, string[]>;
+  onSendTyping?: (topicId: string, authorName: string, isTyping: boolean) => void;
+  currentUserName?: string;
 }
 
 export const DiscussionView: React.FC<DiscussionViewProps> = ({
@@ -43,6 +46,9 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
   onTriggerRomanVoting,
   onAdvanceToCompleted,
   onMoveTopicStatus,
+  typingUsers = {},
+  onSendTyping,
+  currentUserName = '',
 }) => {
   const { t } = useTranslation();
 
@@ -58,6 +64,9 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
   const lastSavedNotesRef = React.useRef(activeTopic?.notes || '');
   const activeTopicIdRef = React.useRef(activeTopic?.id);
   const isFocusedRef = React.useRef(false);
+  // Throttle para o typing indicator: envia no máx 1 evento a cada 1500ms
+  const typingThrottleRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingEmittedRef = React.useRef(false);
 
   // Sincronizar notas locais quando o tópico ativo mudar ou quando novas notas chegarem do servidor
   React.useEffect(() => {
@@ -117,6 +126,18 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
 
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
+    }
+
+    // Emite typing indicator (throttled a 1500ms)
+    if (activeTopic && onSendTyping && currentUserName) {
+      if (!isTypingEmittedRef.current) {
+        onSendTyping(activeTopic.id, currentUserName, true);
+        isTypingEmittedRef.current = true;
+      }
+      if (typingThrottleRef.current) clearTimeout(typingThrottleRef.current);
+      typingThrottleRef.current = setTimeout(() => {
+        isTypingEmittedRef.current = false;
+      }, 1500);
     }
 
     // Auto-save inteligente após 900ms de inatividade
@@ -463,6 +484,15 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                   onBlur={() => {
                     isFocusedRef.current = false;
                     handleSaveImmediate();
+                    // Avisa que parou de digitar
+                    if (activeTopic && onSendTyping && currentUserName) {
+                      onSendTyping(activeTopic.id, currentUserName, false);
+                      isTypingEmittedRef.current = false;
+                      if (typingThrottleRef.current) {
+                        clearTimeout(typingThrottleRef.current);
+                        typingThrottleRef.current = null;
+                      }
+                    }
                   }}
                   onKeyDown={(e) => {
                     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -491,6 +521,48 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                   <span>{t('discussion.notes_hint', 'Sincronizado em tempo real com todos os participantes.')}</span>
                   <span>{notes.length} carac.</span>
                 </div>
+
+                {/* Typing Indicator */}
+                {activeTopic && (() => {
+                  const typers = (typingUsers[activeTopic.id] || []).filter((n) => n !== currentUserName);
+                  if (typers.length === 0) return null;
+                  const label = typers.length === 1
+                    ? `${typers[0]} está digitando...`
+                    : typers.length === 2
+                    ? `${typers[0]} e ${typers[1]} estão digitando...`
+                    : `${typers.length} pessoas estão digitando...`;
+                  return (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        fontSize: '0.72rem',
+                        color: 'var(--color-primary)',
+                        fontWeight: 600,
+                        marginTop: '0.15rem',
+                        animation: 'fadeIn 0.2s ease',
+                      }}
+                    >
+                      <span style={{ display: 'inline-flex', gap: '2px', alignItems: 'flex-end' }}>
+                        {[0, 1, 2].map((i) => (
+                          <span
+                            key={i}
+                            style={{
+                              display: 'inline-block',
+                              width: '4px',
+                              height: '4px',
+                              borderRadius: '50%',
+                              background: 'var(--color-primary)',
+                              animation: `typingDot 1.2s ${i * 0.2}s ease-in-out infinite`,
+                            }}
+                          />
+                        ))}
+                      </span>
+                      {label}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Botões do Facilitador */}
