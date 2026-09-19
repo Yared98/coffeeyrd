@@ -1,0 +1,23 @@
+services:
+  coffeeyrd:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: coffeeyrd-app
+    restart: unless-stopped
+    ports:
+      - "8083:8082"
+    environment:
+      - PORT=8082
+      - DATABASE_URL=/app/data/coffee.db
+      - STATIC_DIR=/app/dist
+      - RETENTION_DAYS=60
+      - RUST_LOG=backend=info,tower_http=info
+      - UMAMI_SCRIPT_URL=${UMAMI_SCRIPT_URL:-}
+      - UMAMI_WEBSITE_ID=${UMAMI_WEBSITE_ID:-}
+    volumes:
+      - coffee-data:/app/data
+
+volumes:
+  coffee-data:
+    driver: local

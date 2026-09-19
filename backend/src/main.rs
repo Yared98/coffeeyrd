@@ -147,9 +147,10 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // Criar pasta de dados se não existir
-    std::fs::create_dir_all("data").ok();
-    let db_path = "data/coffeeyrd.db".to_string();
+    let db_path = std::env::var("DATABASE_URL").unwrap_or_else(|_| "data/coffeeyrd.db".to_string());
+    if let Some(parent) = std::path::Path::new(&db_path).parent() {
+        std::fs::create_dir_all(parent).ok();
+    }
 
     {
         let conn = Connection::open(&db_path).expect("Falha ao abrir SQLite");
