@@ -17,6 +17,8 @@ export const en = {
       facilitator_tooltip: 'You are the Facilitator of this session',
       leave: 'Leave Room',
       participants: 'participants',
+      onlineCount: 'online',
+      reconnecting: 'Reconnecting...',
     },
     phases: {
       ideation: '1. Ideation',

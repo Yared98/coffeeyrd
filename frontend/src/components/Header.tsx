@@ -16,6 +16,7 @@ import {
   ArrowRight,
   ArrowLeft,
   CheckCircle2,
+  Users,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EcosystemSwitcher } from './EcosystemSwitcher';
@@ -24,6 +25,8 @@ import type { Session, SessionPhase } from '../types';
 
 interface HeaderProps {
   session: Session;
+  onlineCount?: number;
+  isConnected?: boolean;
   isFacilitator: boolean;
   theme: 'light' | 'dark';
   userName?: string;
@@ -38,6 +41,8 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   session,
+  onlineCount = 1,
+  isConnected = true,
   isFacilitator,
   theme,
   userName,
@@ -212,6 +217,67 @@ export const Header: React.FC<HeaderProps> = ({
             {copied ? <Check size={14} color="var(--color-success)" /> : <Share2 size={14} />}
             <span className="header-btn-text">{copied ? t('nav.copied') : t('nav.share')}</span>
           </button>
+
+          {/* Indicador de Presença Online */}
+          {isConnected ? (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.28rem 0.65rem',
+                backgroundColor: 'var(--color-success-bg, rgba(16, 185, 129, 0.12))',
+                border: '1px solid var(--color-success-border, rgba(16, 185, 129, 0.25))',
+                borderRadius: 'var(--radius-full, 9999px)',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: 'var(--color-success, #10b981)',
+              }}
+              title={`${onlineCount} ${t('nav.onlineCount', 'online')}`}
+            >
+              <span
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--color-success, #10b981)',
+                  display: 'inline-block',
+                }}
+                className="animate-pulse"
+              />
+              <Users size={12} />
+              <span>{onlineCount} {t('nav.onlineCount', 'online')}</span>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.28rem 0.65rem',
+                backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.25)',
+                borderRadius: 'var(--radius-full, 9999px)',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: '#f59e0b',
+              }}
+              title={t('nav.reconnecting', 'Reconectando...')}
+            >
+              <span
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: '#f59e0b',
+                  display: 'inline-block',
+                }}
+                className="animate-pulse"
+              />
+              <Users size={12} />
+              <span>{t('nav.reconnecting', 'Reconectando...')}</span>
+            </div>
+          )}
 
           {/* Exportar */}
           <button

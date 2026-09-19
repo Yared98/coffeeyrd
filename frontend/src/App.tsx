@@ -231,6 +231,8 @@ export function App() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Header
         session={session}
+        onlineCount={snapshot.online_count}
+        isConnected={isConnected}
         isFacilitator={is_facilitator}
         theme={theme}
         userName={userName}

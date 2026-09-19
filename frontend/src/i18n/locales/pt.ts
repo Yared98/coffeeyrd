@@ -17,6 +17,8 @@ export const pt = {
       facilitator_tooltip: 'Você é o Facilitador desta sessão',
       leave: 'Sair da Mesa',
       participants: 'participantes',
+      onlineCount: 'online',
+      reconnecting: 'Reconectando...',
     },
     phases: {
       ideation: '1. Proposição',
