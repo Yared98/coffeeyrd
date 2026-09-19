@@ -105,15 +105,17 @@
   padding: 0;
 }
 
-body {
+html, body, #root {
+  width: 100%;
+  min-height: 100vh;
   font-family: var(--font-sans);
   background: var(--bg-canvas-radial, var(--bg-canvas));
   background-attachment: fixed;
   background-color: var(--bg-canvas);
   color: var(--text-main);
-  min-height: 100vh;
   font-size: var(--text-base);
   line-height: var(--leading-normal);
+  font-weight: var(--font-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
