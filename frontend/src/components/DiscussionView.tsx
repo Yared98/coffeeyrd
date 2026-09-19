@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Vote,
   Loader2,
+  GripVertical,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Topic, TopicStatus } from '../types';
@@ -166,6 +167,106 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
     }
   };
 
+  const [draggedTopicId, setDraggedTopicId] = useState<string | null>(null);
+  const dragCounterRef = React.useRef<Record<string, number>>({
+    TO_DISCUSS: 0,
+    DISCUSSING: 0,
+    DISCUSSED: 0,
+  });
+
+  const handleDragStart = (e: React.DragEvent, topicId: string) => {
+    if (!isFacilitator) return;
+    setDraggedTopicId(topicId);
+    e.dataTransfer.setData('text/plain', topicId);
+    try {
+      e.dataTransfer.setData('application/json', JSON.stringify({ topicId }));
+    } catch {}
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnd = () => {
+    setDraggedTopicId(null);
+    setDragOverCol(null);
+    dragCounterRef.current = { TO_DISCUSS: 0, DISCUSSING: 0, DISCUSSED: 0 };
+  };
+
+  const handleColDragEnter = (e: React.DragEvent, col: 'TO_DISCUSS' | 'DISCUSSING' | 'DISCUSSED') => {
+    if (!isFacilitator) return;
+    e.preventDefault();
+    dragCounterRef.current[col] = (dragCounterRef.current[col] || 0) + 1;
+    if (dragOverCol !== col) {
+      setDragOverCol(col);
+    }
+  };
+
+  const handleColDragOver = (e: React.DragEvent, col: 'TO_DISCUSS' | 'DISCUSSING' | 'DISCUSSED') => {
+    if (!isFacilitator) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverCol !== col) {
+      setDragOverCol(col);
+    }
+  };
+
+  const handleColDragLeave = (e: React.DragEvent, col: 'TO_DISCUSS' | 'DISCUSSING' | 'DISCUSSED') => {
+    if (!isFacilitator) return;
+    e.preventDefault();
+    dragCounterRef.current[col] = Math.max(0, (dragCounterRef.current[col] || 1) - 1);
+    if (dragCounterRef.current[col] === 0 && dragOverCol === col) {
+      setDragOverCol(null);
+    }
+  };
+
+  const extractDroppedTopicId = (e: React.DragEvent): string | null => {
+    let topicId = e.dataTransfer.getData('text/plain');
+    if (!topicId) {
+      try {
+        const json = e.dataTransfer.getData('application/json');
+        if (json) {
+          const parsed = JSON.parse(json);
+          topicId = parsed.topicId;
+        }
+      } catch {}
+    }
+    return topicId || draggedTopicId;
+  };
+
+  const handleDropToDiscuss = (e: React.DragEvent) => {
+    if (!isFacilitator) return;
+    e.preventDefault();
+    setDragOverCol(null);
+    dragCounterRef.current.TO_DISCUSS = 0;
+    const topicId = extractDroppedTopicId(e);
+    if (!topicId) return;
+    if (toDiscuss.some((t) => t.id === topicId)) return;
+    onMoveTopicStatus?.(topicId, 'TO_DISCUSS');
+    setDraggedTopicId(null);
+  };
+
+  const handleDropDiscussing = (e: React.DragEvent) => {
+    if (!isFacilitator) return;
+    e.preventDefault();
+    setDragOverCol(null);
+    dragCounterRef.current.DISCUSSING = 0;
+    const topicId = extractDroppedTopicId(e);
+    if (!topicId) return;
+    if (activeTopic?.id === topicId) return;
+    onSelectActiveTopic(topicId);
+    setDraggedTopicId(null);
+  };
+
+  const handleDropDiscussed = (e: React.DragEvent) => {
+    if (!isFacilitator) return;
+    e.preventDefault();
+    setDragOverCol(null);
+    dragCounterRef.current.DISCUSSED = 0;
+    const topicId = extractDroppedTopicId(e);
+    if (!topicId) return;
+    if (discussed.some((t) => t.id === topicId)) return;
+    onMoveTopicStatus?.(topicId, 'DISCUSSED');
+    setDraggedTopicId(null);
+  };
+
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto', width: '100%', padding: '1.25rem 1rem' }}>
       {/* 3 Colunas da Mesa de Café */}
@@ -180,23 +281,10 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
         {/* Coluna 1: A Discutir */}
         <div
           className="glass-panel"
-          onDragOver={(e) => {
-            if (!isFacilitator) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            if (dragOverCol !== 'TO_DISCUSS') setDragOverCol('TO_DISCUSS');
-          }}
-          onDragLeave={(e) => {
-            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-            if (dragOverCol === 'TO_DISCUSS') setDragOverCol(null);
-          }}
-          onDrop={(e) => {
-            if (!isFacilitator) return;
-            e.preventDefault();
-            setDragOverCol(null);
-            const topicId = e.dataTransfer.getData('text/plain');
-            if (topicId && onMoveTopicStatus) onMoveTopicStatus(topicId, 'TO_DISCUSS');
-          }}
+          onDragEnter={(e) => handleColDragEnter(e, 'TO_DISCUSS')}
+          onDragOver={(e) => handleColDragOver(e, 'TO_DISCUSS')}
+          onDragLeave={(e) => handleColDragLeave(e, 'TO_DISCUSS')}
+          onDrop={handleDropToDiscuss}
           style={{
             padding: '1.25rem',
             display: 'flex',
@@ -230,6 +318,25 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
             </span>
           </div>
 
+          {/* Feedback visual de Drop */}
+          {dragOverCol === 'TO_DISCUSS' && (
+            <div
+              style={{
+                padding: '0.65rem',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--color-primary-subtle)',
+                border: '1.5px dashed var(--color-primary)',
+                textAlign: 'center',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                color: 'var(--color-primary)',
+                pointerEvents: 'none',
+              }}
+            >
+              📝 Solte aqui para colocar na fila
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {toDiscuss.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-dim)', fontSize: '0.82rem' }}>
@@ -240,19 +347,19 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                 <div
                   key={topic.id}
                   draggable={isFacilitator}
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('text/plain', topic.id);
-                    e.dataTransfer.effectAllowed = 'move';
-                  }}
+                  onDragStart={(e) => handleDragStart(e, topic.id)}
+                  onDragEnd={handleDragEnd}
                   style={{
                     background: 'var(--bg-surface-elevated)',
-                    border: '1px solid var(--border-subtle)',
+                    border: draggedTopicId === topic.id ? '1.5px dashed var(--color-primary)' : '1px solid var(--border-subtle)',
+                    opacity: draggedTopicId === topic.id ? 0.4 : 1,
                     borderRadius: 'var(--radius-md)',
                     padding: '0.85rem',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '0.5rem',
                     cursor: isFacilitator ? 'grab' : 'default',
+                    transition: 'opacity var(--transition-fast), border-color var(--transition-fast)',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
@@ -290,6 +397,8 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
 
                     {isFacilitator && (
                       <button
+                        draggable={false}
+                        onMouseDown={(e) => e.stopPropagation()}
                         onClick={() => onSelectActiveTopic(topic.id)}
                         className="btn-secondary"
                         style={{ padding: '0.25rem 0.55rem', fontSize: '0.72rem' }}
@@ -308,27 +417,14 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
         {/* Coluna 2: Discutindo Agora (Spotlight) */}
         <div
           className="glass-panel"
-          onDragOver={(e) => {
-            if (!isFacilitator) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            if (dragOverCol !== 'DISCUSSING') setDragOverCol('DISCUSSING');
-          }}
-          onDragLeave={(e) => {
-            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-            if (dragOverCol === 'DISCUSSING') setDragOverCol(null);
-          }}
-          onDrop={(e) => {
-            if (!isFacilitator) return;
-            e.preventDefault();
-            setDragOverCol(null);
-            const topicId = e.dataTransfer.getData('text/plain');
-            if (topicId) onSelectActiveTopic(topicId);
-          }}
+          onDragEnter={(e) => handleColDragEnter(e, 'DISCUSSING')}
+          onDragOver={(e) => handleColDragOver(e, 'DISCUSSING')}
+          onDragLeave={(e) => handleColDragLeave(e, 'DISCUSSING')}
+          onDrop={handleDropDiscussing}
           style={{
             padding: '1.25rem',
             border: dragOverCol === 'DISCUSSING' ? '2px dashed var(--color-primary)' : '2px solid var(--border-primary)',
-            background: 'var(--color-primary-subtle)',
+            background: dragOverCol === 'DISCUSSING' ? 'rgba(245, 158, 11, 0.16)' : 'var(--color-primary-subtle)',
             display: 'flex',
             flexDirection: 'column',
             gap: '1.25rem',
@@ -345,6 +441,8 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
 
             {isFacilitator && (
               <button
+                draggable={false}
+                onMouseDown={(e) => e.stopPropagation()}
                 onClick={onTriggerRomanVoting}
                 className="btn-primary"
                 style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
@@ -355,39 +453,99 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
             )}
           </div>
 
+          {/* Feedback visual de Drop */}
+          {dragOverCol === 'DISCUSSING' && (
+            <div
+              style={{
+                padding: '0.65rem',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-surface)',
+                border: '1.5px dashed var(--color-primary)',
+                textAlign: 'center',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                color: 'var(--color-primary)',
+                pointerEvents: 'none',
+              }}
+            >
+              ☕ Solte aqui para colocar em discussão
+            </div>
+          )}
+
           {activeTopic ? (
             <div
-              draggable={isFacilitator}
-              onDragStart={(e) => {
-                e.dataTransfer.setData('text/plain', activeTopic.id);
-                e.dataTransfer.effectAllowed = 'move';
-              }}
               style={{
                 background: 'var(--bg-surface)',
-                border: '1px solid var(--border-highlight)',
+                border: draggedTopicId === activeTopic.id ? '1.5px dashed var(--color-primary)' : '1px solid var(--border-highlight)',
+                opacity: draggedTopicId === activeTopic.id ? 0.4 : 1,
                 borderRadius: 'var(--radius-lg)',
                 padding: '1.25rem',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '1rem',
-                cursor: isFacilitator ? 'grab' : 'default',
+                transition: 'opacity var(--transition-fast), border-color var(--transition-fast)',
               }}
             >
+              {/* Cabeçalho do Card Ativo com Alça de Arraste para o Facilitador */}
+              <div
+                draggable={isFacilitator}
+                onDragStart={(e) => handleDragStart(e, activeTopic.id)}
+                onDragEnd={handleDragEnd}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: '0.75rem',
+                  padding: isFacilitator ? '0.5rem 0.65rem' : '0',
+                  margin: isFacilitator ? '-0.5rem -0.5rem 0 -0.5rem' : '0',
+                  borderRadius: 'var(--radius-md)',
+                  background: isFacilitator ? 'var(--bg-subtle)' : undefined,
+                  border: isFacilitator ? '1px dashed var(--border-subtle)' : undefined,
+                  cursor: isFacilitator ? 'grab' : 'default',
+                  userSelect: 'none',
+                }}
+                title={isFacilitator ? 'Arraste para mover para outra coluna (A Discutir ou Discutidos)' : undefined}
+              >
+                <div>
+                  <span
+                    style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      color: 'var(--color-primary)',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    Tópico Ativo
+                  </span>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0.25rem 0 0', color: 'var(--text-main)' }}>
+                    {activeTopic.title}
+                  </h2>
+                </div>
+
+                {isFacilitator && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem',
+                      color: 'var(--text-dim)',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      padding: '0.2rem 0.45rem',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'var(--bg-surface)',
+                      border: '1px solid var(--border-subtle)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <GripVertical size={13} />
+                    <span>Arrastar</span>
+                  </div>
+                )}
+              </div>
+
               <div>
-                <span
-                  style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    color: 'var(--color-primary)',
-                    letterSpacing: '0.04em',
-                  }}
-                >
-                  Tópico Ativo
-                </span>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0.25rem 0 0', color: 'var(--text-main)' }}>
-                  {activeTopic.title}
-                </h2>
                 <MarkdownDescription
                   content={activeTopic.description}
                   fontSize="0.85rem"
@@ -457,6 +615,8 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                     {saveStatus === 'dirty' && (
                       <button
                         type="button"
+                        draggable={false}
+                        onMouseDown={(e) => e.stopPropagation()}
                         onClick={() => handleSaveImmediate()}
                         className="btn-secondary"
                         style={{
@@ -478,6 +638,8 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                 </div>
 
                 <textarea
+                  draggable={false}
+                  onMouseDown={(e) => e.stopPropagation()}
                   value={notes}
                   onChange={(e) => handleNotesChange(e.target.value)}
                   onFocus={() => { isFocusedRef.current = true; }}
@@ -570,6 +732,8 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)' }}>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button
+                      draggable={false}
+                      onMouseDown={(e) => e.stopPropagation()}
                       onClick={() => onControlTimer(timerIsRunning ? 'PAUSE' : 'START')}
                       className="btn-secondary"
                       style={{ flex: 1, padding: '0.5rem', fontSize: '0.78rem' }}
@@ -579,6 +743,8 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                     </button>
 
                     <button
+                      draggable={false}
+                      onMouseDown={(e) => e.stopPropagation()}
                       onClick={handleFinishAndNext}
                       className="btn-primary"
                       style={{ flex: 1, padding: '0.5rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}
@@ -591,6 +757,8 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
 
                   <div style={{ display: 'flex', gap: '0.4rem' }}>
                     <button
+                      draggable={false}
+                      onMouseDown={(e) => e.stopPropagation()}
                       onClick={onTriggerRomanVoting}
                       className="btn-secondary"
                       style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.74rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', color: 'var(--color-primary)' }}
@@ -601,6 +769,8 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                     </button>
 
                     <button
+                      draggable={false}
+                      onMouseDown={(e) => e.stopPropagation()}
                       onClick={() => onMoveTopicStatus?.(activeTopic.id, 'TO_DISCUSS')}
                       className="btn-secondary"
                       style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.74rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}
@@ -611,6 +781,8 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                     </button>
 
                     <button
+                      draggable={false}
+                      onMouseDown={(e) => e.stopPropagation()}
                       onClick={() => onMoveTopicStatus?.(activeTopic.id, 'DISCUSSED')}
                       className="btn-secondary"
                       style={{ flex: 1, padding: '0.35rem 0.5rem', fontSize: '0.74rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}
@@ -638,6 +810,8 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
               <p style={{ margin: 0, fontSize: '0.9rem' }}>{t('discussion.empty_discussing')}</p>
               {isFacilitator && toDiscuss.length === 0 && (
                 <button
+                  draggable={false}
+                  onMouseDown={(e) => e.stopPropagation()}
                   onClick={onAdvanceToCompleted}
                   className="btn-primary"
                   style={{ marginTop: '1rem', padding: '0.5rem 1.25rem' }}
@@ -652,23 +826,10 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
         {/* Coluna 3: Discutido */}
         <div
           className="glass-panel"
-          onDragOver={(e) => {
-            if (!isFacilitator) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            if (dragOverCol !== 'DISCUSSED') setDragOverCol('DISCUSSED');
-          }}
-          onDragLeave={(e) => {
-            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-            if (dragOverCol === 'DISCUSSED') setDragOverCol(null);
-          }}
-          onDrop={(e) => {
-            if (!isFacilitator) return;
-            e.preventDefault();
-            setDragOverCol(null);
-            const topicId = e.dataTransfer.getData('text/plain');
-            if (topicId && onMoveTopicStatus) onMoveTopicStatus(topicId, 'DISCUSSED');
-          }}
+          onDragEnter={(e) => handleColDragEnter(e, 'DISCUSSED')}
+          onDragOver={(e) => handleColDragOver(e, 'DISCUSSED')}
+          onDragLeave={(e) => handleColDragLeave(e, 'DISCUSSED')}
+          onDrop={handleDropDiscussed}
           style={{
             padding: '1.25rem',
             display: 'flex',
@@ -702,6 +863,25 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
             </span>
           </div>
 
+          {/* Feedback visual de Drop */}
+          {dragOverCol === 'DISCUSSED' && (
+            <div
+              style={{
+                padding: '0.65rem',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--color-primary-subtle)',
+                border: '1.5px dashed var(--color-primary)',
+                textAlign: 'center',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                color: 'var(--color-primary)',
+                pointerEvents: 'none',
+              }}
+            >
+              ✅ Solte aqui para marcar como concluído
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {discussed.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-dim)', fontSize: '0.82rem' }}>
@@ -712,20 +892,19 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                 <div
                   key={topic.id}
                   draggable={isFacilitator}
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('text/plain', topic.id);
-                    e.dataTransfer.effectAllowed = 'move';
-                  }}
+                  onDragStart={(e) => handleDragStart(e, topic.id)}
+                  onDragEnd={handleDragEnd}
                   style={{
                     background: 'var(--bg-surface-elevated)',
-                    border: '1px solid var(--border-subtle)',
+                    border: draggedTopicId === topic.id ? '1.5px dashed var(--color-primary)' : '1px solid var(--border-subtle)',
+                    opacity: draggedTopicId === topic.id ? 0.4 : 0.9,
                     borderRadius: 'var(--radius-md)',
                     padding: '0.85rem',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '0.5rem',
-                    opacity: 0.9,
                     cursor: isFacilitator ? 'grab' : 'default',
+                    transition: 'opacity var(--transition-fast), border-color var(--transition-fast)',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
@@ -752,6 +931,8 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                   {isFacilitator && (
                     <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', paddingTop: '0.4rem', borderTop: '1px solid var(--border-subtle)' }}>
                       <button
+                        draggable={false}
+                        onMouseDown={(e) => e.stopPropagation()}
                         onClick={() => onMoveTopicStatus?.(topic.id, 'TO_DISCUSS')}
                         className="btn-secondary"
                         style={{ padding: '0.25rem 0.55rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
@@ -762,6 +943,8 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                       </button>
 
                       <button
+                        draggable={false}
+                        onMouseDown={(e) => e.stopPropagation()}
                         onClick={() => onSelectActiveTopic(topic.id)}
                         className="btn-secondary"
                         style={{ padding: '0.25rem 0.55rem', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}

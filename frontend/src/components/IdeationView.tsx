@@ -31,6 +31,7 @@ export const IdeationView: React.FC<IdeationViewProps> = ({
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [draggedTopicId, setDraggedTopicId] = useState<string | null>(null);
   const [dragOverTopicId, setDragOverTopicId] = useState<string | null>(null);
+  const dragCountersRef = React.useRef<Record<string, number>>({});
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,33 +265,57 @@ export const IdeationView: React.FC<IdeationViewProps> = ({
                     if (!isFacilitator) return;
                     setDraggedTopicId(topic.id);
                     e.dataTransfer.setData('text/plain', topic.id);
+                    try {
+                      e.dataTransfer.setData('application/json', JSON.stringify({ topicId: topic.id }));
+                    } catch {}
                     e.dataTransfer.effectAllowed = 'move';
                   }}
                   onDragEnd={() => {
                     setDraggedTopicId(null);
                     setDragOverTopicId(null);
+                    dragCountersRef.current = {};
+                  }}
+                  onDragEnter={(e) => {
+                    if (!isFacilitator || !draggedTopicId || draggedTopicId === topic.id) return;
+                    e.preventDefault();
+                    dragCountersRef.current[topic.id] = (dragCountersRef.current[topic.id] || 0) + 1;
+                    if (dragOverTopicId !== topic.id) {
+                      setDragOverTopicId(topic.id);
+                    }
                   }}
                   onDragOver={(e) => {
-                    if (!isFacilitator) return;
+                    if (!isFacilitator || !draggedTopicId || draggedTopicId === topic.id) return;
                     e.preventDefault();
                     e.dataTransfer.dropEffect = 'move';
-                    if (draggedTopicId && draggedTopicId !== topic.id && dragOverTopicId !== topic.id) {
+                    if (dragOverTopicId !== topic.id) {
                       setDragOverTopicId(topic.id);
                     }
                   }}
                   onDragLeave={(e) => {
                     if (!isFacilitator) return;
-                    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-                    if (dragOverTopicId === topic.id) setDragOverTopicId(null);
+                    e.preventDefault();
+                    dragCountersRef.current[topic.id] = Math.max(0, (dragCountersRef.current[topic.id] || 1) - 1);
+                    if (dragCountersRef.current[topic.id] === 0 && dragOverTopicId === topic.id) {
+                      setDragOverTopicId(null);
+                    }
                   }}
                   onDrop={(e) => {
                     if (!isFacilitator) return;
                     e.preventDefault();
                     setDragOverTopicId(null);
-                    const sourceId = e.dataTransfer.getData('text/plain') || draggedTopicId;
-                    if (sourceId && sourceId !== topic.id && onMergeTopics) {
-                      onMergeTopics(sourceId, topic.id);
+                    dragCountersRef.current[topic.id] = 0;
+                    let sourceId: string | null = e.dataTransfer.getData('text/plain') || null;
+                    if (!sourceId) {
+                      try {
+                        const json = e.dataTransfer.getData('application/json');
+                        if (json) sourceId = JSON.parse(json).topicId;
+                      } catch {}
                     }
+                    const finalSourceId = sourceId || draggedTopicId;
+                    if (finalSourceId && finalSourceId !== topic.id && onMergeTopics) {
+                      onMergeTopics(finalSourceId, topic.id);
+                    }
+                    setDraggedTopicId(null);
                   }}
                   className="glass-panel"
                   style={{
