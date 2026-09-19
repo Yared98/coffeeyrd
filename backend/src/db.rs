@@ -284,8 +284,11 @@ pub fn get_user_votes(conn: &Connection, session_id: &str, voter_hash: &str) -> 
     Ok(list)
 }
 
-pub fn update_topic_notes(conn: &Connection, topic_id: &str, notes: &str) -> Result<()> {
-    conn.execute("UPDATE topics SET notes = ?1 WHERE id = ?2", params![notes, topic_id])?;
+pub fn update_topic_notes(conn: &Connection, session_id: &str, topic_id: &str, notes: &str) -> Result<()> {
+    conn.execute(
+        "UPDATE topics SET notes = ?1 WHERE id = ?2 AND session_id = ?3",
+        params![notes, topic_id, session_id],
+    )?;
     Ok(())
 }
 

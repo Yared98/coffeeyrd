@@ -11,6 +11,7 @@ import {
   Save,
   RotateCcw,
   Vote,
+  Loader2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Topic, TopicStatus } from '../types';
@@ -50,31 +51,91 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
   const discussed = topics.filter((t) => t.status === 'DISCUSSED');
 
   const [notes, setNotes] = useState(activeTopic?.notes || '');
-  const [isSaved, setIsSaved] = useState(true);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'dirty'>('saved');
   const [dragOverCol, setDragOverCol] = useState<'TO_DISCUSS' | 'DISCUSSING' | 'DISCUSSED' | null>(null);
 
-  // Sincronizar notas locais quando o tópico ativo mudar
+  const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSavedNotesRef = React.useRef(activeTopic?.notes || '');
+  const activeTopicIdRef = React.useRef(activeTopic?.id);
+  const isFocusedRef = React.useRef(false);
+
+  // Sincronizar notas locais quando o tópico ativo mudar ou quando novas notas chegarem do servidor
   React.useEffect(() => {
     if (activeTopic) {
-      setNotes(activeTopic.notes);
-      setIsSaved(true);
+      // Se trocou de tópico ativo: carrega notas do novo tópico imediatamente
+      if (activeTopicIdRef.current !== activeTopic.id) {
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+          debounceTimerRef.current = null;
+        }
+        activeTopicIdRef.current = activeTopic.id;
+        setNotes(activeTopic.notes || '');
+        lastSavedNotesRef.current = activeTopic.notes || '';
+        setSaveStatus('saved');
+        return;
+      }
+
+      // Se é o mesmo tópico ativo, mas o servidor enviou notas atualizadas por outro participante
+      // e o usuário local não está com o campo focado nem com edições pendentes
+      if (!isFocusedRef.current && saveStatus === 'saved') {
+        if (activeTopic.notes !== notes) {
+          setNotes(activeTopic.notes || '');
+          lastSavedNotesRef.current = activeTopic.notes || '';
+        }
+      }
     }
-  }, [activeTopic?.id]);
+  }, [activeTopic?.id, activeTopic?.notes, saveStatus, notes]);
+
+  // Limpeza de timers no desmonte
+  React.useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleSaveImmediate = (textOverride?: string) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    const textToSave = textOverride !== undefined ? textOverride : notes;
+    if (activeTopic && textToSave !== lastSavedNotesRef.current) {
+      setSaveStatus('saving');
+      onUpdateNotes(activeTopic.id, textToSave);
+      lastSavedNotesRef.current = textToSave;
+      setTimeout(() => setSaveStatus('saved'), 350);
+    } else {
+      setSaveStatus('saved');
+    }
+  };
 
   const handleNotesChange = (val: string) => {
     setNotes(val);
-    setIsSaved(false);
-  };
+    setSaveStatus('dirty');
 
-  const handleSaveNotes = () => {
-    if (activeTopic) {
-      onUpdateNotes(activeTopic.id, notes);
-      setIsSaved(true);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
+
+    // Auto-save inteligente após 900ms de inatividade
+    debounceTimerRef.current = setTimeout(() => {
+      if (activeTopic) {
+        setSaveStatus('saving');
+        onUpdateNotes(activeTopic.id, val);
+        lastSavedNotesRef.current = val;
+        setTimeout(() => setSaveStatus('saved'), 350);
+      }
+    }, 900);
   };
 
   const handleFinishAndNext = () => {
     if (!activeTopic) return;
+    // Força o salvamento imediato de qualquer anotação pendente antes de avançar
+    if (saveStatus !== 'saved') {
+      handleSaveImmediate(notes);
+    }
     if (toDiscuss.length > 0) {
       onSelectActiveTopic(toDiscuss[0].id);
       onControlTimer('RESET');
@@ -328,21 +389,87 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                     <FileText size={13} />
-                    Anotações & Combinados
+                    {t('discussion.notes_title', 'Anotações & Combinados')}
                   </span>
-                  <button
-                    onClick={handleSaveNotes}
-                    className="btn-secondary"
-                    style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}
-                  >
-                    {isSaved ? <Check size={11} color="var(--color-success)" /> : <Save size={11} />}
-                    <span>{isSaved ? 'Salvo' : 'Salvar Notas'}</span>
-                  </button>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    {saveStatus === 'saved' && (
+                      <span
+                        style={{
+                          fontSize: '0.68rem',
+                          color: 'var(--color-success)',
+                          fontWeight: 600,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          background: 'rgba(16, 185, 129, 0.1)',
+                          padding: '0.15rem 0.45rem',
+                          borderRadius: 'var(--radius-full)',
+                          border: '1px solid rgba(16, 185, 129, 0.25)',
+                        }}
+                      >
+                        <Check size={11} color="var(--color-success)" />
+                        <span>{t('discussion.notes_saved', 'Salvo')}</span>
+                      </span>
+                    )}
+
+                    {saveStatus === 'saving' && (
+                      <span
+                        style={{
+                          fontSize: '0.68rem',
+                          color: 'var(--color-primary)',
+                          fontWeight: 600,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          background: 'var(--color-primary-subtle)',
+                          padding: '0.15rem 0.45rem',
+                          borderRadius: 'var(--radius-full)',
+                          border: '1px solid var(--border-primary)',
+                        }}
+                      >
+                        <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} />
+                        <span>{t('discussion.notes_saving', 'Salvando...')}</span>
+                      </span>
+                    )}
+
+                    {saveStatus === 'dirty' && (
+                      <button
+                        type="button"
+                        onClick={() => handleSaveImmediate()}
+                        className="btn-secondary"
+                        style={{
+                          padding: '0.18rem 0.45rem',
+                          fontSize: '0.7rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          color: 'var(--color-primary)',
+                          fontWeight: 700,
+                        }}
+                        title={t('discussion.notes_save_btn', 'Salvar Notas')}
+                      >
+                        <Save size={11} />
+                        <span>{t('discussion.notes_save_btn', 'Salvar')}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
+
                 <textarea
                   value={notes}
                   onChange={(e) => handleNotesChange(e.target.value)}
-                  onBlur={handleSaveNotes}
+                  onFocus={() => { isFocusedRef.current = true; }}
+                  onBlur={() => {
+                    isFocusedRef.current = false;
+                    handleSaveImmediate();
+                  }}
+                  onKeyDown={(e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSaveImmediate();
+                    }
+                  }}
                   placeholder={t('discussion.notes_placeholder')}
                   rows={4}
                   style={{
@@ -356,8 +483,14 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                     fontFamily: 'inherit',
                     resize: 'vertical',
                     outline: 'none',
+                    transition: 'border-color var(--transition-fast)',
                   }}
                 />
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem', fontSize: '0.68rem', color: 'var(--text-dim)' }}>
+                  <span>{t('discussion.notes_hint', 'Sincronizado em tempo real com todos os participantes.')}</span>
+                  <span>{notes.length} carac.</span>
+                </div>
               </div>
 
               {/* Botões do Facilitador */}

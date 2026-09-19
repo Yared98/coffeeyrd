@@ -303,11 +303,14 @@ async fn process_client_message(
         }
 
         ClientMessage::UpdateTopicNotes { topic_id, notes } => {
-            // Apenas facilitador pode editar notas de tópicos
-            if is_facilitator {
-                let _ = db::update_topic_notes(&conn, &topic_id, &notes);
-                broadcast_snapshot(state, session_id);
-            }
+            // Anotações e combinados são colaborativos entre facilitador e participantes
+            let clean_notes = if notes.len() > 20_000 {
+                &notes[..20_000]
+            } else {
+                &notes
+            };
+            let _ = db::update_topic_notes(&conn, session_id, &topic_id, clean_notes);
+            broadcast_snapshot(state, session_id);
         }
 
         ClientMessage::MoveTopicStatus { topic_id, status } => {

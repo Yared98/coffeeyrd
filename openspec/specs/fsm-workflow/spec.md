@@ -30,6 +30,8 @@ O CoffeeYrd implementa uma Máquina de Estados Finita (FSM) estrita para conduzi
 - A tela organiza-se em 3 colunas dinâmicas com movimentação flexível:
   1. **A Discutir (`TO_DISCUSS`)**: Fila ordenada por votos.
   2. **Discutindo Agora (`DISCUSSING`)**: O tópico atualmente em debate com Timer de timebox ativo e área de anotações compartilhadas.
+     - **Anotações & Combinados Colaborativos**: Tanto facilitadores quanto participantes podem registrar decisões e combinados em tempo real.
+     - **Auto-Save & Sincronização Contínua**: O editor possui salvamento automático com debounce, atalho `Ctrl+Enter` / `Cmd+Enter` e sincronização reativa imediata via WebSocket para todos os clientes conectados.
   3. **Discutido (`DISCUSSED`)**: Histórico dos tópicos finalizados com notas registradas.
 - **Reabertura & Gestão de Erros**:
   - Tópicos na coluna `DISCUSSED` podem ser reabertos para `TO_DISCUSS` ou retomados diretamente para `DISCUSSING`.
