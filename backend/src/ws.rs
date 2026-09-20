@@ -174,7 +174,7 @@ fn build_snapshot(
     })
 }
 
-fn broadcast_snapshot(state: &AppState, session_id: &str) {
+pub fn broadcast_snapshot(state: &AppState, session_id: &str) {
     let hub = state.get_or_create_hub(session_id);
     // Dispara sinal para o loop de cada cliente gerar o snapshot com seu respectivo voter_hash
     if let Some(dummy_snap) = build_snapshot(state, session_id, "", false) {
@@ -438,7 +438,7 @@ async fn process_client_message(
     }
 }
 
-async fn handle_timer_control(
+pub async fn handle_timer_control(
     state: &AppState,
     session_id: &str,
     command: &str,
