@@ -160,6 +160,9 @@ async fn main() {
 
     let state = AppState::new(db_path.clone());
 
+    // Inicializa o token de admin (se não definido no .env, gera aleatório e exibe no console)
+    admin::get_or_init_admin_token("CoffeeYrd");
+
     // Rotina periódica de auto-purge para higienização de sessões antigas (Padrão: 60 dias)
     // Aceita RETENTION_DAYS unificada ou SESSION_RETENTION_DAYS específica
     let retention_days: i64 = std::env::var("RETENTION_DAYS")
