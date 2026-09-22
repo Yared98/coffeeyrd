@@ -17,10 +17,13 @@ import {
   ArrowLeft,
   CheckCircle2,
   Users,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EcosystemSwitcher } from './EcosystemSwitcher';
 import { copyToClipboard } from '../utils/clipboard';
+import { soundPlayer } from '../utils/sound';
 import type { Session, SessionPhase } from '../types';
 
 interface HeaderProps {
@@ -58,6 +61,8 @@ export const Header: React.FC<HeaderProps> = ({
   const [copied, setCopied] = useState(false);
   const [localSeconds, setLocalSeconds] = useState(session.timer_seconds_remaining);
   const [showTimerMenu, setShowTimerMenu] = useState(false);
+  const [hasAlertedEnd, setHasAlertedEnd] = useState(false);
+  const [isMuted, setIsMuted] = useState(soundPlayer.isMuted);
   const timerMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -70,12 +75,24 @@ export const Header: React.FC<HeaderProps> = ({
       const now = Date.now();
       const diff = Math.max(0, Math.ceil((session.timer_ends_at! - now) / 1000));
       setLocalSeconds(diff);
+
+      if (diff === 0 && !hasAlertedEnd) {
+        soundPlayer.playAlarm(5);
+        setHasAlertedEnd(true);
+      }
     };
 
     calc();
     const interval = setInterval(calc, 250);
     return () => clearInterval(interval);
-  }, [session.timer_is_running, session.timer_ends_at, session.timer_seconds_remaining]);
+  }, [session.timer_is_running, session.timer_ends_at, session.timer_seconds_remaining, hasAlertedEnd]);
+
+  useEffect(() => {
+    if (localSeconds > 0) {
+      setHasAlertedEnd(false);
+      soundPlayer.stop();
+    }
+  }, [localSeconds]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -568,6 +585,33 @@ export const Header: React.FC<HeaderProps> = ({
                     title="Resetar"
                   >
                     <RotateCcw size={12} />
+                  </button>
+                </div>
+
+                <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '0.1rem 0' }} />
+
+                <div style={{ display: 'flex', gap: '0.35rem' }}>
+                  <button
+                    onClick={() => {
+                      const next = soundPlayer.toggleMute();
+                      setIsMuted(next);
+                    }}
+                    className="btn-secondary"
+                    style={{ flex: 1, padding: '0.35rem', fontSize: '0.72rem', gap: '0.35rem', justifyContent: 'center' }}
+                    title={isMuted ? 'Ligar som do alarme' : 'Mutar som do alarme'}
+                  >
+                    {isMuted ? <VolumeX size={13} color="var(--color-danger)" /> : <Volume2 size={13} color="var(--color-success)" />}
+                    <span>{isMuted ? 'Mudo' : 'Som on'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => soundPlayer.playAlarm(3)}
+                    className="btn-secondary"
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.72rem', gap: '0.35rem' }}
+                    title="Testar Alarme Sonoro"
+                  >
+                    <Volume2 size={13} />
+                    <span>Testar</span>
                   </button>
                 </div>
               </div>
