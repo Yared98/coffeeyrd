@@ -11,12 +11,20 @@ import { SummaryView } from './components/SummaryView';
 import { RomanVoteModal } from './components/RomanVoteModal';
 import { McpModal } from './components/McpModal';
 import { IdentityModal } from './components/IdentityModal';
+import { AdminDashboard } from './components/AdminDashboard';
 import { Footer } from './components/Footer';
 import { saveRecentSession } from './utils/recentSessions';
 import { getUserProfileName } from './utils/userProfile';
 import { initAnalytics, trackPageView } from './utils/analytics';
 
 export function App() {
+  const [isAdminRoute] = useState(() => {
+    return (
+      window.location.pathname.startsWith('/admin') ||
+      new URLSearchParams(window.location.search).get('view') === 'admin'
+    );
+  });
+
   const [sessionId, setSessionId] = useState<string | null>(() => {
     const pathMatch = window.location.pathname.match(/\/session\/([A-Za-z0-9_-]+)/);
     if (pathMatch) return pathMatch[1];
@@ -191,6 +199,15 @@ export function App() {
         : '';
     window.location.href = `${apiHost}/api/sessions/${sessionId}/export`;
   };
+
+  if (isAdminRoute) {
+    return (
+      <AdminDashboard
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
+    );
+  }
 
   if (!sessionId) {
     return (

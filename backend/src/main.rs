@@ -1,3 +1,4 @@
+mod admin;
 mod db;
 mod mcp;
 mod models;
@@ -194,7 +195,7 @@ async fn main() {
 
     let cors = CorsLayer::new()
         .allow_origin(tower_http::cors::Any)
-        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+        .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
         .allow_headers(tower_http::cors::Any);
 
     let static_dir = std::env::var("STATIC_DIR").unwrap_or_else(|_| "../frontend/dist".to_string());
@@ -205,6 +206,7 @@ async fn main() {
         .route("/health", get(health_check))
         .route("/robots.txt", get(robots_txt_handler))
         .route("/api/config", get(client_config_handler))
+        .nest("/api/admin", admin::admin_routes())
         .route("/api/sessions", post(create_session_handler))
         .route("/api/sessions/{id}", get(get_session_handler))
         .route("/api/sessions/{id}/export", get(export_session_handler))

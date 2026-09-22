@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 
-use crate::models::{RomanVoteChoice, Session, SessionPhase, Topic, TopicStatus};
+use crate::models::{
+    AdminMetrics, AdminSessionSummary, RomanVoteChoice, Session, SessionPhase, Topic, TopicStatus,
+};
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension, Result};
 
@@ -767,3 +769,64 @@ pub fn undo_merge(
 
     Ok(Some(s_id))
 }
+
+pub fn get_admin_metrics(conn: &Connection, db_path: &str) -> Result<AdminMetrics> {
+    let total_sessions: usize = conn.query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get(0))?;
+    let active_sessions_30d: usize = conn.query_row(
+        "SELECT COUNT(*) FROM sessions WHERE created_at >= datetime('now', '-30 days')",
+        [],
+        |r| r.get(0),
+    )?;
+    let total_topics: usize = conn.query_row("SELECT COUNT(*) FROM topics", [], |r| r.get(0))?;
+    let total_votes: usize = conn.query_row("SELECT COUNT(*) FROM votes", [], |r| r.get(0))?;
+    let distinct_participants: usize = conn.query_row(
+        "SELECT COUNT(DISTINCT voter_hash) FROM votes",
+        [],
+        |r| r.get(0),
+    )?;
+
+    let db_size_bytes = std::fs::metadata(db_path).map(|m| m.len()).unwrap_or(0);
+
+    Ok(AdminMetrics {
+        total_sessions,
+        active_sessions_30d,
+        total_topics,
+        total_votes,
+        distinct_participants,
+        db_size_bytes,
+    })
+}
+
+pub fn list_admin_sessions(conn: &Connection, limit: usize) -> Result<Vec<AdminSessionSummary>> {
+    let mut stmt = conn.prepare(
+        "SELECT s.id, s.title, s.phase,
+                (SELECT COUNT(*) FROM topics t WHERE t.session_id = s.id) as topic_count,
+                (SELECT COUNT(*) FROM votes v WHERE v.session_id = s.id) as vote_count,
+                s.created_at
+         FROM sessions s
+         ORDER BY s.created_at DESC
+         LIMIT ?1",
+    )?;
+
+    let rows = stmt.query_map(params![limit as i64], |row| {
+        Ok(AdminSessionSummary {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            phase: row.get(2)?,
+            topic_count: row.get(3)?,
+            vote_count: row.get(4)?,
+            created_at: row.get(5)?,
+        })
+    })?;
+
+    let mut sessions = Vec::new();
+    for r in rows {
+        sessions.push(r?);
+    }
+    Ok(sessions)
+}
+
+pub fn delete_session_by_admin(conn: &Connection, session_id: &str) -> Result<usize> {
+    conn.execute("DELETE FROM sessions WHERE id = ?1", params![session_id])
+}
+

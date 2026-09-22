@@ -148,3 +148,41 @@ pub struct SessionSnapshot {
     pub online_count: usize,
     pub roman_voting: RomanVotingState,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdminMetrics {
+    pub total_sessions: usize,
+    pub active_sessions_30d: usize,
+    pub total_topics: usize,
+    pub total_votes: usize,
+    pub distinct_participants: usize,
+    pub db_size_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdminSessionSummary {
+    pub id: String,
+    pub title: String,
+    pub phase: String,
+    pub topic_count: usize,
+    pub vote_count: usize,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdminMetricsResponse {
+    pub metrics: AdminMetrics,
+    pub active_sessions_memory: usize,
+    pub sessions: Vec<AdminSessionSummary>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdminPurgeResponse {
+    pub purged_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AdminDeleteResponse {
+    pub deleted: bool,
+}
+

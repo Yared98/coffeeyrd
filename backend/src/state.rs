@@ -106,6 +106,8 @@ pub struct SessionHub {
 pub struct AppState {
     pub db_path: String,
     pub sessions: Arc<DashMap<String, SessionHub>>,
+    pub admin_rate_limiter: Arc<DashMap<String, (u32, std::time::Instant)>>,
+    pub admin_sessions: Arc<DashMap<String, std::time::Instant>>,
 }
 
 impl AppState {
@@ -113,6 +115,8 @@ impl AppState {
         Self {
             db_path,
             sessions: Arc::new(DashMap::new()),
+            admin_rate_limiter: Arc::new(DashMap::new()),
+            admin_sessions: Arc::new(DashMap::new()),
         }
     }
 
