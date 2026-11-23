@@ -143,6 +143,22 @@ pub struct Topic {
     pub thermo_spread: Option<f64>,
 }
 
+impl Topic {
+    /// Resumo do termômetro para atas em Markdown (exportação e MCP).
+    pub fn thermo_summary(&self) -> String {
+        match (self.thermo_avg, self.thermo_spread) {
+            (Some(avg), Some(spread)) if self.thermo_count > 0 => {
+                let votos = if self.thermo_count == 1 { "voto" } else { "votos" };
+                format!(
+                    "Termômetro: média {:.1}% · divergência {:.1} ({} {})",
+                    avg, spread, self.thermo_count, votos
+                )
+            }
+            _ => "Termômetro: sem votos".to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RomanVotingState {
     pub is_active: bool,

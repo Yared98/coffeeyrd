@@ -113,12 +113,7 @@ async fn export_session_handler(
                 md.push_str(&format!("> {}\n\n", desc));
             }
             if session.voting_mode == models::VotingMode::Thermometer {
-                let avg = t.thermo_avg.unwrap_or(0.0);
-                let spread = t.thermo_spread.unwrap_or(0.0);
-                md.push_str(&format!(
-                    "- **Termômetro:** média {}% · divergência {} ({} votos)\n",
-                    avg, spread, t.thermo_count
-                ));
+                md.push_str(&format!("- **{}**\n", t.thermo_summary()));
             } else {
                 md.push_str(&format!("- **Votos:** {}\n", t.vote_count));
             }
@@ -137,12 +132,7 @@ async fn export_session_handler(
         md.push_str("## 📝 Tópicos Não Discutidos\n\n");
         for t in pending {
             if session.voting_mode == models::VotingMode::Thermometer {
-                let avg = t.thermo_avg.unwrap_or(0.0);
-                let spread = t.thermo_spread.unwrap_or(0.0);
-                md.push_str(&format!(
-                    "- **{}** (Termômetro: média {}% · divergência {} ({} votos))\n",
-                    t.title, avg, spread, t.thermo_count
-                ));
+                md.push_str(&format!("- **{}** ({})\n", t.title, t.thermo_summary()));
             } else {
                 md.push_str(&format!("- **{}** (Votos: {})\n", t.title, t.vote_count));
             }

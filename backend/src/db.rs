@@ -1415,3 +1415,34 @@ mod tests {
     }
 }
 
+
+#[cfg(test)]
+mod thermo_summary_tests {
+    use crate::models::{Topic, TopicStatus};
+
+    fn topic(count: u32, avg: Option<f64>, spread: Option<f64>) -> Topic {
+        Topic {
+            id: "t".into(), session_id: "s".into(), title: "T".into(), description: None,
+            author_name: "A".into(), author_session_hash: "h".into(), status: TopicStatus::ToDiscuss,
+            vote_count: 0, duration_seconds_spent: 0, notes: String::new(), created_at: String::new(),
+            merged_count: 0, thermo_count: count, thermo_avg: avg, thermo_spread: spread,
+        }
+    }
+
+    #[test]
+    fn summary_without_votes_says_no_votes() {
+        assert_eq!(topic(0, None, None).thermo_summary(), "Termômetro: sem votos");
+    }
+
+    #[test]
+    fn summary_with_votes() {
+        assert_eq!(
+            topic(3, Some(50.0), Some(40.8)).thermo_summary(),
+            "Termômetro: média 50.0% · divergência 40.8 (3 votos)"
+        );
+        assert_eq!(
+            topic(1, Some(70.0), Some(0.0)).thermo_summary(),
+            "Termômetro: média 70.0% · divergência 0.0 (1 voto)"
+        );
+    }
+}
