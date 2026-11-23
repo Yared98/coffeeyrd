@@ -12,6 +12,8 @@ export const pt = {
       home: 'Início',
       share: 'Compartilhar',
       copied: 'Copiado!',
+      facilitator_link: 'Link de facilitador',
+      facilitator_link_hint: 'Copia um link que dá controle de facilitador. Envie só para quem vai cofacilitar ou para abrir em outro dispositivo.',
       export: 'Exportar Markdown',
       facilitator: 'FAC',
       facilitator_tooltip: 'Você é o Facilitador desta sessão',

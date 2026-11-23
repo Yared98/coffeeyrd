@@ -12,6 +12,8 @@ export const en = {
       home: 'Home',
       share: 'Share',
       copied: 'Copied!',
+      facilitator_link: 'Facilitator link',
+      facilitator_link_hint: 'Copies a link that grants facilitator control. Share it only with co-facilitators or to open on another device.',
       export: 'Export Markdown',
       facilitator: 'FAC',
       facilitator_tooltip: 'You are the Facilitator of this session',

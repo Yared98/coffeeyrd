@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Coffee,
   Share2,
+  KeyRound,
   Download,
   Bot,
   Sun,
@@ -23,6 +24,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { EcosystemSwitcher } from './EcosystemSwitcher';
 import { copyToClipboard } from '../utils/clipboard';
+import { buildFacilitatorLink, buildParticipantLink } from '../utils/facilitatorToken';
 import { soundPlayer } from '../utils/sound';
 import type { Session, SessionPhase } from '../types';
 
@@ -31,6 +33,7 @@ interface HeaderProps {
   onlineCount?: number;
   isConnected?: boolean;
   isFacilitator: boolean;
+  facilitatorToken?: string | null;
   theme: 'light' | 'dark';
   userName?: string;
   onEditIdentity?: () => void;
@@ -47,6 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
   onlineCount = 1,
   isConnected = true,
   isFacilitator,
+  facilitatorToken,
   theme,
   userName,
   onEditIdentity,
@@ -59,6 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const [copied, setCopied] = useState(false);
+  const [facCopied, setFacCopied] = useState(false);
   const [localSeconds, setLocalSeconds] = useState(session.timer_seconds_remaining);
   const [showTimerMenu, setShowTimerMenu] = useState(false);
   const [hasAlertedEnd, setHasAlertedEnd] = useState(false);
@@ -110,22 +115,21 @@ export const Header: React.FC<HeaderProps> = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Convite de participante: nunca carrega o token, independente do que estiver na barra
   const handleCopy = async () => {
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('token');
-      const ok = await copyToClipboard(url.toString());
-      if (ok) {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
-    } catch {
-      const fallbackUrl = `${window.location.origin}/session/${session.id}`;
-      const ok = await copyToClipboard(fallbackUrl);
-      if (ok) {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
+    const ok = await copyToClipboard(buildParticipantLink(session.id));
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleCopyFacilitator = async () => {
+    if (!facilitatorToken) return;
+    const ok = await copyToClipboard(buildFacilitatorLink(session.id, facilitatorToken));
+    if (ok) {
+      setFacCopied(true);
+      setTimeout(() => setFacCopied(false), 2000);
     }
   };
 
@@ -237,6 +241,20 @@ export const Header: React.FC<HeaderProps> = ({
             {copied ? <Check size={14} color="var(--color-success)" /> : <Share2 size={14} />}
             <span className="header-btn-text">{copied ? t('nav.copied') : t('nav.share')}</span>
           </button>
+
+          {/* Link de facilitador: explícito, só para cofacilitar ou abrir em outro dispositivo */}
+          {isFacilitator && facilitatorToken && (
+            <button
+              onClick={handleCopyFacilitator}
+              className="btn-secondary"
+              style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem' }}
+              title={t('nav.facilitator_link_hint')}
+              aria-label={t('nav.facilitator_link')}
+            >
+              {facCopied ? <Check size={14} color="var(--color-success)" /> : <KeyRound size={14} />}
+              <span className="header-btn-text">{facCopied ? t('nav.copied') : t('nav.facilitator_link')}</span>
+            </button>
+          )}
 
           {/* Indicador de Presença Online */}
           {isConnected ? (

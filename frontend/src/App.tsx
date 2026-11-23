@@ -16,6 +16,11 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { Footer } from './components/Footer';
 import type { VotingMode } from './types';
 import { saveRecentSession } from './utils/recentSessions';
+import {
+  consumeTokenFromUrl,
+  getStoredFacilitatorToken,
+  storeFacilitatorToken,
+} from './utils/facilitatorToken';
 import { getUserProfileName } from './utils/userProfile';
 import { initAnalytics, trackPageView } from './utils/analytics';
 
@@ -35,12 +40,12 @@ export function App() {
   });
 
   const [facilitatorToken, setFacilitatorToken] = useState<string | null>(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    if (token) return token;
     const pathMatch = window.location.pathname.match(/\/session\/([A-Za-z0-9_-]+)/);
-    const sId = pathMatch ? pathMatch[1] : urlParams.get('session');
-    return sId ? (sessionStorage.getItem(`coffee_token_${sId}`) || localStorage.getItem(`coffee_token_${sId}`)) : null;
+    const sId = pathMatch ? pathMatch[1] : new URLSearchParams(window.location.search).get('session');
+    // Token vindo de link (?token= antigo ou #token=) é guardado e some da barra de endereço
+    const fromUrl = consumeTokenFromUrl(sId);
+    if (fromUrl) return fromUrl;
+    return sId ? getStoredFacilitatorToken(sId) : null;
   });
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -162,8 +167,7 @@ export function App() {
     if (!res.ok) throw new Error('Falha ao criar sessão');
     const data = await res.json();
     if (data.id) {
-      sessionStorage.setItem(`coffee_token_${data.id}`, data.facilitator_token);
-      localStorage.setItem(`coffee_token_${data.id}`, data.facilitator_token);
+      storeFacilitatorToken(data.id, data.facilitator_token);
       saveRecentSession({
         id: data.id,
         title: title.trim(),
@@ -172,25 +176,18 @@ export function App() {
       });
       setSessionId(data.id);
       setFacilitatorToken(data.facilitator_token);
-      window.history.pushState({}, '', `/session/${data.id}?token=${data.facilitator_token}`);
+      window.history.pushState({}, '', `/session/${data.id}`);
     }
   };
 
   const handleJoinSession = (id: string, token?: string | null) => {
-    const effectiveToken =
-      token ||
-      sessionStorage.getItem(`coffee_token_${id}`) ||
-      localStorage.getItem(`coffee_token_${id}`) ||
-      null;
+    if (token) storeFacilitatorToken(id, token);
+    const effectiveToken = token || getStoredFacilitatorToken(id);
 
     setSessionId(id);
-    if (effectiveToken) {
-      setFacilitatorToken(effectiveToken);
-      window.history.pushState({}, '', `/session/${id}?token=${effectiveToken}`);
-    } else {
-      setFacilitatorToken(null);
-      window.history.pushState({}, '', `/session/${id}`);
-    }
+    setFacilitatorToken(effectiveToken);
+    // A URL nunca carrega o token: copiar a barra de endereço gera só link de participante
+    window.history.pushState({}, '', `/session/${id}`);
   };
 
   const handleLeaveSession = () => {
@@ -259,6 +256,7 @@ export function App() {
         onlineCount={snapshot.online_count}
         isConnected={isConnected}
         isFacilitator={is_facilitator}
+        facilitatorToken={facilitatorToken}
         theme={theme}
         userName={userName}
         onEditIdentity={() => setShowIdentityModal(true)}
