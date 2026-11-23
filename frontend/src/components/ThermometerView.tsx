@@ -11,6 +11,7 @@ import {
 import type { Topic, ThermometerPosition } from '../types';
 import { MarkdownDescription } from './MarkdownDescription';
 import { ThermoBadge } from './ThermoBadge';
+import { STANCE_STYLE, thermoStance } from '../utils/thermometer';
 
 interface ThermometerViewProps {
   topics: Topic[];
@@ -220,12 +221,8 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
   const avg = currentTopic.thermo_avg ?? null;
   const spread = currentTopic.thermo_spread ?? null;
 
-  let spreadLabel = t('thermometer.spread_no_votes');
-  if (spread !== null) {
-    if (spread < 15) spreadLabel = t('thermometer.spread_consensus');
-    else if (spread < 30) spreadLabel = t('thermometer.spread_moderate');
-    else spreadLabel = t('thermometer.spread_high');
-  }
+  const stanceStyle = STANCE_STYLE[thermoStance(count, avg, spread)];
+  const spreadLabel = t(stanceStyle.labelKey);
 
   const zones = [
     { label: t('thermometer.zone_strongly_disagree'), range: '0% – 20%', bg: 'rgba(239, 68, 68, 0.2)' },
@@ -577,7 +574,7 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
             <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 600 }}>
               {t('thermometer.spread_label')}
             </div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-primary)', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: stanceStyle.color, marginTop: '0.2rem' }}>
               {spreadLabel}
             </div>
             {spread !== null && (

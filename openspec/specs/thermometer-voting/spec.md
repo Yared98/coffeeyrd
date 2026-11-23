@@ -46,7 +46,18 @@ Cada `Topic` ganha:
 - `thermo_avg`: média (0–100, 1 casa decimal) ou `null` sem votos.
 - `thermo_spread`: desvio padrão populacional (1 casa decimal) ou `null` sem votos. É a **divergência**.
 
-Rótulo de divergência na UI: `< 15` Consenso; `15–30` Divergência moderada; `>= 30` Alta divergência.
+Rótulo na UI (badge e tela do termômetro), pela divergência e, quando ela é baixa, pela média:
+| Divergência | Média | Rótulo | Cor |
+|---|---|---|---|
+| `>= 30` | qualquer | Alta divergência | âmbar |
+| `15–30` | qualquer | Divergência moderada | âmbar |
+| `< 15` | `>= 60` | Consenso: concordam | verde |
+| `< 15` | `<= 40` | Consenso: discordam | vermelho |
+| `< 15` | `40–60` | Todos neutros / indefinido | violeta |
+
+"Todos neutros" não é consenso sobre o tema: costuma indicar falta de contexto ou tema mal formulado,
+por isso tem cor própria. A ordem da pauta não muda (continua por divergência). Regra única em
+`frontend/src/utils/thermometer.ts`.
 
 Ordenação de `get_topics` (vale para os dois modos; no modo priorizado os campos do termômetro são zero):
 `vote_count DESC, variância do termômetro DESC, thermo_count DESC, created_at ASC`.
