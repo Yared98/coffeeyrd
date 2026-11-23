@@ -186,7 +186,7 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
     const sorted = [...otherPositions].sort((a, b) => a.value - b.value);
     const levels: { value: number; level: number }[] = [];
     return sorted.map((p) => {
-      const nearby = levels.filter((item) => Math.abs(item.value - p.value) < 4.5);
+      const nearby = levels.filter((item) => Math.abs(item.value - p.value) < 8);
       const level = nearby.length > 0 ? Math.max(...nearby.map((n) => n.level)) + 1 : 0;
       levels.push({ value: p.value, level });
       return { ...p, level };
@@ -199,6 +199,12 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
     for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
     return AVATAR_COLORS[h % AVATAR_COLORS.length];
   };
+
+  // Altura extra reservada acima da régua para avatares empilhados (máx. 3 níveis)
+  const maxStackLevel = Math.min(
+    2,
+    positionsWithStackLevel.reduce((m, p) => (p.name === null ? m : Math.max(m, p.level)), 0)
+  );
 
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/);
@@ -330,7 +336,7 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
       <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         {/* Título & Descrição */}
         <div>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem 0.75rem', flexWrap: 'wrap' }}>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
               {currentTopic.title}
             </h2>
@@ -389,7 +395,7 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
           </div>
 
           {/* Área da Régua com Zonas Coloridas e Marcadores */}
-          <div style={{ position: 'relative', marginTop: '1.75rem', marginBottom: '2.5rem' }}>
+          <div style={{ position: 'relative', marginTop: `calc(1.75rem + ${maxStackLevel * 22}px)`, marginBottom: '0.5rem' }}>
             {/* Marcadores dos demais participantes (Avatares / Pontos) */}
             <div
               style={{
@@ -494,9 +500,9 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
               aria-label={currentTopic.title}
               className={`thermometer-slider${userVote === undefined ? ' thermometer-slider--unset' : ''}`}
               style={{
+                // Alinhado ao topo da faixa colorida (28px), não ao bloco faixa + rótulos
                 position: 'absolute',
-                top: '50%',
-                transform: 'translateY(-50%)',
+                top: 0,
                 left: 0,
                 width: '100%',
                 margin: 0,
