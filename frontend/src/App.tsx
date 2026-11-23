@@ -324,6 +324,7 @@ export function App() {
             onSendTyping={sendTyping}
             currentUserName={userName}
             votingMode={session.voting_mode}
+            thermometerPositions={snapshot.thermometer_positions || {}}
           />
         )}
 

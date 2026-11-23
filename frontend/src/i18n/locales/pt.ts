@@ -78,6 +78,9 @@ export const pt = {
       proposed_by: 'Proposto por:',
       drag_hint: '(arraste ou use as setas para votar)',
       votes_label: 'Votos',
+      extremes_title: 'Comece ouvindo as pontas',
+      extremes_low: 'Mais discorda:',
+      extremes_high: 'Mais concorda:',
       not_voted: 'Seu voto: —',
     },
     ideation: {

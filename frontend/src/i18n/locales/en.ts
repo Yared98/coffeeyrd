@@ -78,6 +78,9 @@ export const en = {
       proposed_by: 'Proposed by:',
       drag_hint: '(drag or use the arrow keys to vote)',
       votes_label: 'Votes',
+      extremes_title: 'Start by hearing the extremes',
+      extremes_low: 'Most disagrees:',
+      extremes_high: 'Most agrees:',
       not_voted: 'Your vote: —',
     },
     ideation: {

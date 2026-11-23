@@ -14,9 +14,10 @@ import {
   GripVertical,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { Topic, TopicStatus, VotingMode } from '../types';
+import type { ThermometerPosition, Topic, TopicStatus, VotingMode } from '../types';
 import { MarkdownDescription } from './MarkdownDescription';
 import { ThermoBadge } from './ThermoBadge';
+import { ThermoExtremes } from './ThermoExtremes';
 
 interface DiscussionViewProps {
   topics: Topic[];
@@ -34,6 +35,7 @@ interface DiscussionViewProps {
   onSendTyping?: (topicId: string, authorName: string, isTyping: boolean) => void;
   currentUserName?: string;
   votingMode?: VotingMode;
+  thermometerPositions?: Record<string, ThermometerPosition[]>;
 }
 
 export const DiscussionView: React.FC<DiscussionViewProps> = ({
@@ -52,6 +54,7 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
   onSendTyping,
   currentUserName = '',
   votingMode = 'PRIORITY',
+  thermometerPositions = {},
 }) => {
   const { t } = useTranslation();
 
@@ -558,8 +561,8 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                   maxCollapsedHeight={95}
                   maxLengthThreshold={160}
                 />
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.65rem' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.65rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}>
                     <User size={13} />
                     Proposto por: <strong>{activeTopic.author_name}</strong>
                   </span>
@@ -571,6 +574,9 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                     </span>
                   )}
                 </div>
+                {votingMode === 'THERMOMETER' && (
+                  <ThermoExtremes topic={activeTopic} positions={thermometerPositions[activeTopic.id]} />
+                )}
               </div>
 
               {/* Bloco de Notas Compartilhadas */}

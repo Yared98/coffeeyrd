@@ -72,5 +72,15 @@ O snapshot ganha:
   identificado; pontos sem nome no anônimo), média, divergência, número de votos, "Remover meu voto" e
   progresso "Você votou em X de N tópicos".
 - **DISCUSSION e COMPLETED**: no modo termômetro, o lugar da contagem de votos mostra a média e o rótulo de divergência.
+
+### 7.1 Extremos no tópico em discussão ("Comece ouvindo as pontas")
+Para abrir o debate pelas premissas diferentes (como no Planning Poker), o card "Discutindo Agora" mostra quem
+votou no menor e no maior valor da régua: "Mais discorda: Ana 10%" e "Mais concorda: Carlos 92%".
+- Só em sessões **identificadas** (nas anônimas o servidor não envia nomes; nada aparece).
+- Só com pelo menos 2 votos nomeados, divergência `>= 15` (a partir de "moderada") e menor valor diferente do maior.
+  Com consenso, não há extremos a destacar.
+- Empates mostram todos os nomes no mesmo valor (até 2 e "+N" para o restante; lista completa no `title`).
+- Calculado no cliente a partir de `thermometer_positions`; não há mudança de backend nem de protocolo.
+- O texto é um convite ("Comece ouvindo as pontas"), não um rótulo sobre as pessoas.
 - **Exportação Markdown e MCP (`summarize_meeting`)**: no modo termômetro, a linha de votos vira
   `Termômetro: média X% · divergência Y (N votos)`.
