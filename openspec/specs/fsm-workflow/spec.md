@@ -19,7 +19,10 @@ O CoffeeYrd implementa uma Máquina de Estados Finita (FSM) estrita para conduzi
 - **Reversibilidade de Mescla**: toda mescla pode ser desfeita pelo Facilitador através de notificação pós-ação ou botão de reversão no card mesclado.
 - O facilitador pode editar o tempo padrão do timebox (ex: 5 minutos).
 
-### 2.2 VOTING (Priorização por Votação / Dot-Voting)
+### 2.2 VOTING (Priorização por Votação / Dot-Voting ou Termômetro)
+- O modo é escolhido na criação da sessão (`voting_mode`): `PRIORITY` (dot-voting, descrito abaixo) ou
+  `THERMOMETER` (régua de concordância por tópico, ver `openspec/specs/thermometer-voting/spec.md`).
+  No modo termômetro, a fila "A Discutir" é ordenada pela maior divergência.
 - Cada participante recebe uma cota de votos (padrão: 3 a 5 votos).
 - Os votos podem ser distribuídos entre múltiplos tópicos ou acumulados no mesmo tópico.
 - Suporte a Drag & Drop para mesclar cards durante a votação caso duplicatas ainda estejam presentes, transferindo votos consolidados.
