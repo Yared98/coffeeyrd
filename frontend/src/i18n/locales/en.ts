@@ -72,6 +72,13 @@ export const en = {
       votes_count_plural: '{{count}} votes',
       badge_text: 'avg {{avg}}% · {{spread_label}}',
       badge_no_votes: 'no votes',
+      prev: 'Previous',
+      next: 'Next',
+      topic_dot: 'Topic {{n}}: {{title}}',
+      proposed_by: 'Proposed by:',
+      drag_hint: '(drag or use the arrow keys to vote)',
+      votes_label: 'Votes',
+      not_voted: 'Your vote: —',
     },
     ideation: {
       title: 'Topic Ideation',

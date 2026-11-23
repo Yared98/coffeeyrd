@@ -62,7 +62,7 @@ export const ThermoBadge: React.FC<ThermoBadgeProps> = ({ topic }) => {
         border: '1px solid var(--border-primary)',
         whiteSpace: 'nowrap',
       }}
-      title={`${count} ${count === 1 ? t('thermometer.votes_count', { count }) : t('thermometer.votes_count_plural', { count })}`}
+      title={count === 1 ? t('thermometer.votes_count', { count }) : t('thermometer.votes_count_plural', { count })}
     >
       <Activity size={12} />
       <span>{t('thermometer.badge_text', { avg: avgFormatted, spread_label: spreadLabel })}</span>

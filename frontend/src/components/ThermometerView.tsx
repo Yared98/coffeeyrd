@@ -54,11 +54,23 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
   const pendingValueRef = useRef<number | null>(null);
 
   // Sincronizar o valor local quando o tópico muda ou o voto do usuário é atualizado remotamente
+  // Ao trocar de tópico, descarta arraste pendente e mostra o voto salvo daquele tópico
+  useEffect(() => {
+    isDraggingRef.current = false;
+    pendingValueRef.current = null;
+    if (throttleTimerRef.current) {
+      clearTimeout(throttleTimerRef.current);
+      throttleTimerRef.current = null;
+    }
+    setLocalValue(userVote ?? 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topicId]);
+
   useEffect(() => {
     if (!isDraggingRef.current) {
       setLocalValue(userVote ?? 50);
     }
-  }, [topicId, userVote]);
+  }, [userVote]);
 
   // Limpeza de timers no desmonte
   useEffect(() => {
@@ -119,7 +131,9 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
     }
   };
 
-  const handleSliderCommit = (val: number) => {
+  // Teclado/blur só confirmam se o valor mudou; clique/toque sempre confirma (gesto intencional)
+  const handleSliderCommit = (val: number, force = false) => {
+    if (!force && !isDraggingRef.current) return;
     if (throttleTimerRef.current) {
       clearTimeout(throttleTimerRef.current);
       throttleTimerRef.current = null;
@@ -135,6 +149,7 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
   const handleClearVote = () => {
     if (topicId) {
       onClearThermometer(topicId);
+      isDraggingRef.current = false;
       setLocalValue(50);
     }
   };
@@ -177,6 +192,13 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
       return { ...p, level };
     });
   })();
+
+  const AVATAR_COLORS = ['#4f46e5', '#059669', '#d97706', '#e11d48', '#0891b2', '#7c3aed', '#db2777', '#65a30d'];
+  const colorFor = (name: string) => {
+    let h = 0;
+    for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return AVATAR_COLORS[h % AVATAR_COLORS.length];
+  };
 
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/);
@@ -256,7 +278,7 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
           style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem', opacity: currentIndex === 0 ? 0.4 : 1 }}
         >
           <ChevronLeft size={16} />
-          <span className="header-btn-text">Anterior</span>
+          <span className="header-btn-text">{t('thermometer.prev')}</span>
         </button>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
@@ -272,7 +294,8 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
                 <button
                   key={tItem.id}
                   onClick={() => setCurrentIndex(idx)}
-                  title={`Tópico ${idx + 1}: ${tItem.title}`}
+                  title={t('thermometer.topic_dot', { n: idx + 1, title: tItem.title })}
+                  aria-label={t('thermometer.topic_dot', { n: idx + 1, title: tItem.title })}
                   style={{
                     width: isCurrent ? 20 : 10,
                     height: 10,
@@ -298,7 +321,7 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
           className="btn-secondary"
           style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem', opacity: currentIndex === topics.length - 1 ? 0.4 : 1 }}
         >
-          <span className="header-btn-text">Próximo</span>
+          <span className="header-btn-text">{t('thermometer.next')}</span>
           <ChevronRight size={16} />
         </button>
       </div>
@@ -322,7 +345,7 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
           />
 
           <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.5rem' }}>
-            Proposto por: <strong>{currentTopic.author_name}</strong>
+            {t('thermometer.proposed_by')} <strong>{currentTopic.author_name}</strong>
           </div>
         </div>
 
@@ -343,10 +366,12 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
           {/* Display numérico do meu voto */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
-              {t('thermometer.my_vote', { value: userVote !== undefined ? localValue : localValue })}
+              {userVote !== undefined || isDraggingRef.current
+                ? t('thermometer.my_vote', { value: localValue })
+                : t('thermometer.not_voted')}
               {userVote === undefined && (
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 500, marginLeft: '0.4rem' }}>
-                  (Arraste para definir seu voto)
+                  {t('thermometer.drag_hint')}
                 </span>
               )}
             </span>
@@ -411,7 +436,7 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
                           width: 22,
                           height: 22,
                           borderRadius: '50%',
-                          background: 'var(--color-primary)',
+                          background: colorFor(p.name!),
                           color: '#ffffff',
                           fontSize: '0.625rem',
                           fontWeight: 800,
@@ -463,12 +488,11 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
               max={100}
               value={localValue}
               onChange={(e) => handleSliderChange(Number(e.target.value))}
-              onMouseUp={(e) => handleSliderCommit(Number((e.target as HTMLInputElement).value))}
-              onTouchEnd={(e) => handleSliderCommit(Number((e.target as HTMLInputElement).value))}
+              onPointerUp={(e) => handleSliderCommit(Number((e.target as HTMLInputElement).value), true)}
               onKeyUp={(e) => handleSliderCommit(Number((e.target as HTMLInputElement).value))}
               onBlur={(e) => handleSliderCommit(Number((e.target as HTMLInputElement).value))}
               aria-label={currentTopic.title}
-              className="thermometer-slider"
+              className={`thermometer-slider${userVote === undefined ? ' thermometer-slider--unset' : ''}`}
               style={{
                 position: 'absolute',
                 top: '50%',
@@ -567,7 +591,7 @@ export const ThermometerView: React.FC<ThermometerViewProps> = ({
             }}
           >
             <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 600 }}>
-              {t('nav.participants')}
+              {t('thermometer.votes_label')}
             </div>
             <div
               style={{

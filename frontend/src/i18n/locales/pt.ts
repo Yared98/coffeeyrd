@@ -72,6 +72,13 @@ export const pt = {
       votes_count_plural: '{{count}} votos',
       badge_text: 'média {{avg}}% · {{spread_label}}',
       badge_no_votes: 'sem votos',
+      prev: 'Anterior',
+      next: 'Próximo',
+      topic_dot: 'Tópico {{n}}: {{title}}',
+      proposed_by: 'Proposto por:',
+      drag_hint: '(arraste ou use as setas para votar)',
+      votes_label: 'Votos',
+      not_voted: 'Seu voto: —',
     },
     ideation: {
       title: 'Proposição de Tópicos',

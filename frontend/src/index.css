@@ -694,3 +694,18 @@ input, textarea, select, button {
 }
 
 
+/* Sem voto ainda: marcador apagado para não parecer um voto em 50% */
+.thermometer-slider--unset::-webkit-slider-thumb {
+  background: var(--text-dim);
+  box-shadow: none;
+  opacity: 0.55;
+}
+.thermometer-slider--unset::-moz-range-thumb {
+  background: var(--text-dim);
+  box-shadow: none;
+  opacity: 0.55;
+}
+.thermometer-slider:focus-visible::-webkit-slider-thumb {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}
