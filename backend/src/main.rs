@@ -28,6 +28,8 @@ struct CreateSessionRequest {
     title: String,
     max_votes_per_user: Option<u32>,
     default_timebox_seconds: Option<u32>,
+    voting_mode: Option<String>,
+    thermometer_anonymous: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -45,6 +47,11 @@ async fn create_session_handler(
     let facilitator_token = Ulid::new().to_string();
     let max_votes = payload.max_votes_per_user.unwrap_or(3);
     let timebox = payload.default_timebox_seconds.unwrap_or(300);
+    let voting_mode = match payload.voting_mode.as_deref() {
+        Some(mode) => models::VotingMode::from_str(mode),
+        None => models::VotingMode::Priority,
+    };
+    let thermometer_anonymous = payload.thermometer_anonymous.unwrap_or(true);
 
     let conn = Connection::open(&state.db_path).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let session = db::create_session(
@@ -54,6 +61,8 @@ async fn create_session_handler(
         &facilitator_token,
         max_votes,
         timebox,
+        voting_mode,
+        thermometer_anonymous,
     )
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -103,7 +112,11 @@ async fn export_session_handler(
             if let Some(desc) = &t.description {
                 md.push_str(&format!("> {}\n\n", desc));
             }
-            md.push_str(&format!("- **Votos:** {}\n", t.vote_count));
+            if session.voting_mode == models::VotingMode::Thermometer {
+                md.push_str(&format!("- **{}**\n", t.thermo_summary()));
+            } else {
+                md.push_str(&format!("- **Votos:** {}\n", t.vote_count));
+            }
             if !t.notes.is_empty() {
                 md.push_str(&format!("- **Notas / Combinados:**\n{}\n", t.notes));
             }
@@ -118,7 +131,11 @@ async fn export_session_handler(
     if !pending.is_empty() {
         md.push_str("## 📝 Tópicos Não Discutidos\n\n");
         for t in pending {
-            md.push_str(&format!("- **{}** (Votos: {})\n", t.title, t.vote_count));
+            if session.voting_mode == models::VotingMode::Thermometer {
+                md.push_str(&format!("- **{}** ({})\n", t.title, t.thermo_summary()));
+            } else {
+                md.push_str(&format!("- **{}** (Votos: {})\n", t.title, t.vote_count));
+            }
         }
         md.push_str("\n");
     }

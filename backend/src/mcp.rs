@@ -345,7 +345,11 @@ async fn execute_tool(
                     if let Some(desc) = &t.description {
                         md.push_str(&format!("> {}\n\n", desc));
                     }
-                    md.push_str(&format!("- **Votos:** {}\n", t.vote_count));
+                    if session.voting_mode == crate::models::VotingMode::Thermometer {
+                        md.push_str(&format!("- **{}**\n", t.thermo_summary()));
+                    } else {
+                        md.push_str(&format!("- **Votos:** {}\n", t.vote_count));
+                    }
                     if !t.notes.is_empty() {
                         md.push_str(&format!("- **Notas/Combinados:**\n{}\n", t.notes));
                     }
@@ -357,7 +361,11 @@ async fn execute_tool(
             if !pending.is_empty() {
                 md.push_str("## 📝 Tópicos Não Discutidos (Fila)\n\n");
                 for t in pending {
-                    md.push_str(&format!("- **{}** (Votos: {})\n", t.title, t.vote_count));
+                    if session.voting_mode == crate::models::VotingMode::Thermometer {
+                        md.push_str(&format!("- **{}** ({})\n", t.title, t.thermo_summary()));
+                    } else {
+                        md.push_str(&format!("- **{}** (Votos: {})\n", t.title, t.vote_count));
+                    }
                 }
                 md.push_str("\n");
             }
@@ -443,6 +451,8 @@ mod tests {
             facilitator_token,
             3,
             300,
+            crate::models::VotingMode::Priority,
+            true,
         ).unwrap();
 
         let state = AppState::new(db_path.to_str().unwrap().to_string());
