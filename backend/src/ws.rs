@@ -159,6 +159,8 @@ fn build_snapshot(
     let (session, _) = db::get_session(&conn, session_id).ok()??;
     let topics = db::get_topics(&conn, session_id).ok()?;
     let user_voted_topic_ids = db::get_user_votes(&conn, session_id, voter_hash).unwrap_or_default();
+    let thermometer_positions = db::get_thermometer_positions(&conn, session_id, session.thermometer_anonymous).unwrap_or_default();
+    let user_thermometer = db::get_user_thermometer(&conn, session_id, voter_hash).unwrap_or_default();
 
     let hub = state.get_or_create_hub(session_id);
     let online_count = *hub.online_count.lock().unwrap();
@@ -171,6 +173,8 @@ fn build_snapshot(
         is_facilitator,
         online_count,
         roman_voting,
+        thermometer_positions,
+        user_thermometer,
     })
 }
 
@@ -238,7 +242,9 @@ async fn process_client_message(
 
         ClientMessage::ToggleVote { topic_id } => {
             if let Ok(Some((session, _))) = db::get_session(&conn, session_id) {
-                if session.phase == SessionPhase::Voting || session.phase == SessionPhase::Ideation {
+                if session.voting_mode != crate::models::VotingMode::Thermometer
+                    && (session.phase == SessionPhase::Voting || session.phase == SessionPhase::Ideation)
+                {
                     let _ = db::toggle_vote(
                         &conn,
                         session_id,
@@ -246,6 +252,38 @@ async fn process_client_message(
                         voter_hash,
                         session.max_votes_per_user,
                     );
+                    broadcast_snapshot(state, session_id);
+                }
+            }
+        }
+
+        ClientMessage::SetThermometer {
+            topic_id,
+            value,
+            voter_name,
+        } => {
+            if let Ok(saved) = db::set_thermometer_vote(
+                &conn,
+                session_id,
+                &topic_id,
+                voter_hash,
+                &voter_name,
+                value,
+            ) {
+                if saved {
+                    broadcast_snapshot(state, session_id);
+                }
+            }
+        }
+
+        ClientMessage::ClearThermometer { topic_id } => {
+            if let Ok(cleared) = db::clear_thermometer_vote(
+                &conn,
+                session_id,
+                &topic_id,
+                voter_hash,
+            ) {
+                if cleared {
                     broadcast_snapshot(state, session_id);
                 }
             }

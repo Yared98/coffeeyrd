@@ -1,6 +1,42 @@
 #![allow(dead_code)]
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum VotingMode {
+    Priority,
+    Thermometer,
+}
+
+impl VotingMode {
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "THERMOMETER" => VotingMode::Thermometer,
+            _ => VotingMode::Priority,
+        }
+    }
+
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            VotingMode::Priority => "PRIORITY",
+            VotingMode::Thermometer => "THERMOMETER",
+        }
+    }
+}
+
+impl Default for VotingMode {
+    fn default() -> Self {
+        VotingMode::Priority
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ThermometerPosition {
+    pub value: u8,
+    pub name: Option<String>,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -99,6 +135,12 @@ pub struct Topic {
     pub created_at: String,
     #[serde(default)]
     pub merged_count: u32,
+    #[serde(default)]
+    pub thermo_count: u32,
+    #[serde(default)]
+    pub thermo_avg: Option<f64>,
+    #[serde(default)]
+    pub thermo_spread: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -137,6 +179,10 @@ pub struct Session {
     pub active_topic_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    #[serde(default)]
+    pub voting_mode: VotingMode,
+    #[serde(default)]
+    pub thermometer_anonymous: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -147,6 +193,8 @@ pub struct SessionSnapshot {
     pub is_facilitator: bool,
     pub online_count: usize,
     pub roman_voting: RomanVotingState,
+    pub thermometer_positions: HashMap<String, Vec<ThermometerPosition>>,
+    pub user_thermometer: HashMap<String, u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

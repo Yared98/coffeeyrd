@@ -74,6 +74,16 @@ pub enum ClientMessage {
     UndoMerge {
         target_topic_id: Option<String>,
     },
+    #[serde(rename = "SET_THERMOMETER")]
+    SetThermometer {
+        topic_id: String,
+        value: i64,
+        voter_name: String,
+    },
+    #[serde(rename = "CLEAR_THERMOMETER")]
+    ClearThermometer {
+        topic_id: String,
+    },
     #[serde(rename = "CAST_ROMAN_VOTE")]
     CastRomanVote { choice: RomanVoteChoice },
     #[serde(rename = "TRIGGER_ROMAN_VOTING")]
