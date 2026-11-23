@@ -21,11 +21,18 @@ import {
   removeRecentSession,
   type RecentSession,
 } from '../utils/recentSessions';
+import type { VotingMode } from '../types';
 import { getUserProfileName, saveUserProfileName } from '../utils/userProfile';
 import { copyToClipboard } from '../utils/clipboard';
 
 interface HomeViewProps {
-  onCreateSession: (title: string, maxVotes: number, defaultTimeboxSeconds: number) => Promise<void>;
+  onCreateSession: (
+    title: string,
+    maxVotes: number,
+    defaultTimeboxSeconds: number,
+    votingMode?: VotingMode,
+    thermometerAnonymous?: boolean
+  ) => Promise<void>;
   onJoinSession: (sessionId: string, facilitatorToken?: string | null) => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
@@ -41,6 +48,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [tab, setTab] = useState<'create' | 'join'>('create');
   const [title, setTitle] = useState('');
   const [userName, setUserName] = useState(() => getUserProfileName());
+  const [votingMode, setVotingMode] = useState<VotingMode>('PRIORITY');
+  const [thermometerAnonymous, setThermometerAnonymous] = useState<boolean>(true);
   const [maxVotes, setMaxVotes] = useState(3);
   const [timeboxMins, setTimeboxMins] = useState(5);
   const [joinCode, setJoinCode] = useState('');
@@ -79,7 +88,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     }
     setIsSubmitting(true);
     try {
-      await onCreateSession(title.trim(), maxVotes, timeboxMins * 60);
+      await onCreateSession(title.trim(), maxVotes, timeboxMins * 60, votingMode, thermometerAnonymous);
     } finally {
       setIsSubmitting(false);
     }
@@ -316,7 +325,30 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.4rem' }}>
+                  {t('home.voting_mode_label')}
+                </label>
+                <select
+                  value={votingMode}
+                  onChange={(e) => setVotingMode(e.target.value as VotingMode)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 1rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-subtle)',
+                    background: 'var(--bg-input, var(--bg-surface))',
+                    color: 'var(--text-main)',
+                    fontSize: '0.9rem',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="PRIORITY">{t('home.voting_mode_priority')}</option>
+                  <option value="THERMOMETER">{t('home.voting_mode_thermometer')}</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: votingMode === 'THERMOMETER' ? '1fr' : '1fr 1fr', gap: '0.75rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.4rem' }}>
                     {t('home.timebox_label')}
@@ -342,31 +374,61 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   </select>
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.4rem' }}>
-                    {t('home.max_votes_label')}
-                  </label>
-                  <select
-                    value={maxVotes}
-                    onChange={(e) => setMaxVotes(Number(e.target.value))}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border-subtle)',
-                      background: 'var(--bg-input, var(--bg-surface))',
-                      color: 'var(--text-main)',
-                      fontSize: '0.9rem',
-                      outline: 'none',
-                    }}
-                  >
-                    <option value={3}>3 votos</option>
-                    <option value={5}>5 votos</option>
-                    <option value={8}>8 votos</option>
-                    <option value={0}>Ilimitados</option>
-                  </select>
-                </div>
+                {votingMode === 'PRIORITY' && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.4rem' }}>
+                      {t('home.max_votes_label')}
+                    </label>
+                    <select
+                      value={maxVotes}
+                      onChange={(e) => setMaxVotes(Number(e.target.value))}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem 1rem',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-subtle)',
+                        background: 'var(--bg-input, var(--bg-surface))',
+                        color: 'var(--text-main)',
+                        fontSize: '0.9rem',
+                        outline: 'none',
+                      }}
+                    >
+                      <option value={3}>3 votos</option>
+                      <option value={5}>5 votos</option>
+                      <option value={8}>8 votos</option>
+                      <option value={0}>Ilimitados</option>
+                    </select>
+                  </div>
+                )}
               </div>
+
+              {votingMode === 'THERMOMETER' && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    background: 'var(--bg-subtle)',
+                    padding: '0.75rem 1rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    id="thermometer_anonymous"
+                    checked={thermometerAnonymous}
+                    onChange={(e) => setThermometerAnonymous(e.target.checked)}
+                    style={{ width: '18px', height: '18px', accentColor: 'var(--color-primary)', cursor: 'pointer' }}
+                  />
+                  <label
+                    htmlFor="thermometer_anonymous"
+                    style={{ fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', color: 'var(--text-main)', margin: 0 }}
+                  >
+                    {t('home.thermometer_anonymous_label')}
+                  </label>
+                </div>
+              )}
 
               <button
                 type="submit"

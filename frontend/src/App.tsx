@@ -6,6 +6,7 @@ import { Header } from './components/Header';
 import { HomeView } from './components/HomeView';
 import { IdeationView } from './components/IdeationView';
 import { VotingView } from './components/VotingView';
+import { ThermometerView } from './components/ThermometerView';
 import { DiscussionView } from './components/DiscussionView';
 import { SummaryView } from './components/SummaryView';
 import { RomanVoteModal } from './components/RomanVoteModal';
@@ -13,6 +14,7 @@ import { McpModal } from './components/McpModal';
 import { IdentityModal } from './components/IdentityModal';
 import { AdminDashboard } from './components/AdminDashboard';
 import { Footer } from './components/Footer';
+import type { VotingMode } from './types';
 import { saveRecentSession } from './utils/recentSessions';
 import { getUserProfileName } from './utils/userProfile';
 import { initAnalytics, trackPageView } from './utils/analytics';
@@ -88,6 +90,8 @@ export function App() {
     triggerRomanVoting,
     closeRomanVoting,
     sendTyping,
+    setThermometer,
+    clearThermometer,
   } = useCoffeeSocket(sessionId, facilitatorToken);
 
   const handleMergeTopics = (sourceId: string, targetId: string) => {
@@ -135,7 +139,9 @@ export function App() {
   const handleCreateSession = async (
     title: string,
     maxVotes: number,
-    defaultTimeboxSeconds: number
+    defaultTimeboxSeconds: number,
+    votingMode: VotingMode = 'PRIORITY',
+    thermometerAnonymous: boolean = true
   ) => {
     const apiHost =
       window.location.port === '5173' || window.location.port === '5175'
@@ -148,6 +154,8 @@ export function App() {
         title,
         max_votes_per_user: maxVotes,
         default_timebox_seconds: defaultTimeboxSeconds,
+        voting_mode: votingMode,
+        thermometer_anonymous: thermometerAnonymous,
       }),
     });
 
@@ -276,17 +284,28 @@ export function App() {
           />
         )}
 
-        {session.phase === 'VOTING' && (
-          <VotingView
-            topics={topics}
-            userVotedTopicIds={user_voted_topic_ids}
-            maxVotes={session.max_votes_per_user}
-            isFacilitator={is_facilitator}
-            onToggleVote={toggleVote}
-            onMergeTopics={handleMergeTopics}
-            onUndoMerge={handleUndoMerge}
-          />
-        )}
+        {session.phase === 'VOTING' &&
+          (session.voting_mode === 'THERMOMETER' ? (
+            <ThermometerView
+              topics={topics}
+              userThermometer={snapshot.user_thermometer || {}}
+              thermometerPositions={snapshot.thermometer_positions || {}}
+              userName={userName}
+              isFacilitator={is_facilitator}
+              onSetThermometer={setThermometer}
+              onClearThermometer={clearThermometer}
+            />
+          ) : (
+            <VotingView
+              topics={topics}
+              userVotedTopicIds={user_voted_topic_ids}
+              maxVotes={session.max_votes_per_user}
+              isFacilitator={is_facilitator}
+              onToggleVote={toggleVote}
+              onMergeTopics={handleMergeTopics}
+              onUndoMerge={handleUndoMerge}
+            />
+          ))}
 
         {session.phase === 'DISCUSSION' && (
           <DiscussionView
@@ -304,6 +323,7 @@ export function App() {
             typingUsers={typingUsers}
             onSendTyping={sendTyping}
             currentUserName={userName}
+            votingMode={session.voting_mode}
           />
         )}
 
@@ -313,6 +333,7 @@ export function App() {
             topics={topics}
             onExport={handleExport}
             onHome={handleLeaveSession}
+            votingMode={session.voting_mode}
           />
         )}
       </main>
