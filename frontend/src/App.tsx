@@ -58,6 +58,16 @@ export function App() {
   const [userName, setUserName] = useState<string>(() => getUserProfileName());
   const [showIdentityModal, setShowIdentityModal] = useState(false);
 
+  // Link de facilitador colado na mesma aba só troca o #, sem recarregar: consome o token aqui também
+  useEffect(() => {
+    const onHashChange = () => {
+      const token = consumeTokenFromUrl(sessionId);
+      if (token) setFacilitatorToken(token);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, [sessionId]);
+
   useEffect(() => {
     if (sessionId && !userName) {
       setShowIdentityModal(true);
