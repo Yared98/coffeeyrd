@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Download, Copy, Check, Home, Coffee, CheckCircle2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import confetti from 'canvas-confetti';
-import type { Session, Topic } from '../types';
+import type { Session, Topic, VotingMode } from '../types';
 import { MarkdownDescription } from './MarkdownDescription';
+import { ThermoBadge } from './ThermoBadge';
 import { copyToClipboard } from '../utils/clipboard';
 
 interface SummaryViewProps {
@@ -11,6 +12,7 @@ interface SummaryViewProps {
   topics: Topic[];
   onExport: () => void;
   onHome: () => void;
+  votingMode?: VotingMode;
 }
 
 export const SummaryView: React.FC<SummaryViewProps> = ({
@@ -18,6 +20,7 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
   topics,
   onExport,
   onHome,
+  votingMode = session.voting_mode || 'PRIORITY',
 }) => {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
@@ -38,11 +41,21 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
     md += `- **Data:** ${new Date(session.created_at).toLocaleDateString()}\n`;
     md += `- **Total de Tópicos:** ${topics.length} (${discussed.length} discutidos)\n\n`;
 
+    const formatVoteLine = (topic: Topic) => {
+      if (votingMode === 'THERMOMETER') {
+        const avg = topic.thermo_avg !== null && topic.thermo_avg !== undefined ? `${topic.thermo_avg}%` : 'sem votos';
+        const spread = topic.thermo_spread !== null && topic.thermo_spread !== undefined ? topic.thermo_spread : 'sem votos';
+        const count = topic.thermo_count ?? 0;
+        return `Termômetro: média ${avg} · divergência ${spread} (${count} votos)`;
+      }
+      return `Votos: ${topic.vote_count}`;
+    };
+
     md += `## ☕ Tópicos Discutidos\n\n`;
     for (const t of discussed) {
       md += `### ${t.title}\n`;
       if (t.description) md += `> ${t.description}\n\n`;
-      md += `- **Votos:** ${t.vote_count}\n`;
+      md += `- **${formatVoteLine(t)}**\n`;
       if (t.notes) md += `- **Notas & Combinados:**\n${t.notes}\n`;
       md += `\n`;
     }
@@ -50,7 +63,7 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
     if (pending.length > 0) {
       md += `## 📝 Tópicos Não Discutidos\n\n`;
       for (const t of pending) {
-        md += `- **${t.title}** (${t.vote_count} votos)\n`;
+        md += `- **${t.title}** (${formatVoteLine(t)})\n`;
       }
     }
 
@@ -128,11 +141,15 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
                   padding: '1rem',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
                   <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0 }}>{topic.title}</h4>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 700 }}>
-                    {topic.vote_count} votos
-                  </span>
+                  {votingMode === 'THERMOMETER' ? (
+                    <ThermoBadge topic={topic} />
+                  ) : (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 700 }}>
+                      {topic.vote_count} votos
+                    </span>
+                  )}
                 </div>
                 <MarkdownDescription
                   content={topic.description}
@@ -168,9 +185,10 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
               Tópicos Não Discutidos ({pending.length})
             </h3>
             <ul style={{ paddingLeft: '1.25rem', fontSize: '0.85rem', color: 'var(--text-dim)' }}>
-              {pending.map((t) => (
-                <li key={t.id} style={{ marginBottom: '0.35rem' }}>
-                  <strong>{t.title}</strong> — {t.vote_count} votos
+              {pending.map((tItem) => (
+                <li key={tItem.id} style={{ marginBottom: '0.45rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <strong>{tItem.title}</strong> —{' '}
+                  {votingMode === 'THERMOMETER' ? <ThermoBadge topic={tItem} /> : `${tItem.vote_count} votos`}
                 </li>
               ))}
             </ul>

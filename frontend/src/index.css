@@ -650,3 +650,47 @@ input, textarea, select, button {
   animation: spin 1s linear infinite;
 }
 
+/* Custom styling for Thermometer Range Slider Overlay */
+.thermometer-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  background: transparent;
+  outline: none;
+  position: relative;
+  z-index: 10;
+  cursor: pointer;
+  margin: 0;
+}
+
+.thermometer-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.6), 0 2px 5px rgba(0,0,0,0.3);
+  cursor: grab;
+  transition: transform 0.1s ease;
+}
+
+.thermometer-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.15);
+}
+
+.thermometer-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.6), 0 2px 5px rgba(0,0,0,0.3);
+  cursor: grab;
+  transition: transform 0.1s ease;
+}
+
+

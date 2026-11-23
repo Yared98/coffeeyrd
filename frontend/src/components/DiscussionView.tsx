@@ -14,8 +14,9 @@ import {
   GripVertical,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { Topic, TopicStatus } from '../types';
+import type { Topic, TopicStatus, VotingMode } from '../types';
 import { MarkdownDescription } from './MarkdownDescription';
+import { ThermoBadge } from './ThermoBadge';
 
 interface DiscussionViewProps {
   topics: Topic[];
@@ -32,6 +33,7 @@ interface DiscussionViewProps {
   typingUsers?: Record<string, string[]>;
   onSendTyping?: (topicId: string, authorName: string, isTyping: boolean) => void;
   currentUserName?: string;
+  votingMode?: VotingMode;
 }
 
 export const DiscussionView: React.FC<DiscussionViewProps> = ({
@@ -49,6 +51,7 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
   typingUsers = {},
   onSendTyping,
   currentUserName = '',
+  votingMode = 'PRIORITY',
 }) => {
   const { t } = useTranslation();
 
@@ -363,22 +366,26 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
                     <h4 style={{ fontSize: '0.875rem', fontWeight: 700, margin: 0 }}>{topic.title}</h4>
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.25rem',
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        color: 'var(--color-primary)',
-                        background: 'var(--color-primary-subtle)',
-                        padding: '1px 6px',
-                        borderRadius: 'var(--radius-full)',
-                      }}
-                    >
-                      <ThumbsUp size={11} />
-                      {topic.vote_count}
-                    </span>
+                    {votingMode === 'THERMOMETER' ? (
+                      <ThermoBadge topic={topic} />
+                    ) : (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          color: 'var(--color-primary)',
+                          background: 'var(--color-primary-subtle)',
+                          padding: '1px 6px',
+                          borderRadius: 'var(--radius-full)',
+                        }}
+                      >
+                        <ThumbsUp size={11} />
+                        {topic.vote_count}
+                      </span>
+                    )}
                   </div>
 
                   <MarkdownDescription
@@ -556,9 +563,13 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                     <User size={13} />
                     Proposto por: <strong>{activeTopic.author_name}</strong>
                   </span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 700 }}>
-                    ({activeTopic.vote_count} votos)
-                  </span>
+                  {votingMode === 'THERMOMETER' ? (
+                    <ThermoBadge topic={activeTopic} />
+                  ) : (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 700 }}>
+                      ({activeTopic.vote_count} votos)
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -898,6 +909,7 @@ export const DiscussionView: React.FC<DiscussionViewProps> = ({
                     <h4 style={{ fontSize: '0.875rem', fontWeight: 700, margin: 0, textDecoration: 'line-through', color: 'var(--text-muted)' }}>
                       {topic.title}
                     </h4>
+                    {votingMode === 'THERMOMETER' && <ThermoBadge topic={topic} />}
                   </div>
 
                   {topic.notes && (

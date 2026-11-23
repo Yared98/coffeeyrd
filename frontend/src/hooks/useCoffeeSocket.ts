@@ -207,6 +207,20 @@ export function useCoffeeSocket(sessionId: string | null, facilitatorToken: stri
     [send]
   );
 
+  const setThermometer = useCallback(
+    (topicId: string, value: number, voterName?: string) => {
+      send('SET_THERMOMETER', { topic_id: topicId, value, voter_name: voterName || 'Anônimo' });
+    },
+    [send]
+  );
+
+  const clearThermometer = useCallback(
+    (topicId: string) => {
+      send('CLEAR_THERMOMETER', { topic_id: topicId });
+    },
+    [send]
+  );
+
   return {
     snapshot,
     isConnected,
@@ -225,5 +239,7 @@ export function useCoffeeSocket(sessionId: string | null, facilitatorToken: stri
     triggerRomanVoting,
     closeRomanVoting,
     sendTyping,
+    setThermometer,
+    clearThermometer,
   };
 }

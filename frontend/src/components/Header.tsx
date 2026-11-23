@@ -131,7 +131,10 @@ export const Header: React.FC<HeaderProps> = ({
 
   const phases: { key: SessionPhase; label: string }[] = [
     { key: 'IDEATION', label: t('phases.ideation') },
-    { key: 'VOTING', label: t('phases.voting') },
+    {
+      key: 'VOTING',
+      label: session.voting_mode === 'THERMOMETER' ? t('phases.thermometer') : t('phases.voting'),
+    },
     { key: 'DISCUSSION', label: t('phases.discussion') },
     { key: 'COMPLETED', label: t('phases.completed') },
   ];

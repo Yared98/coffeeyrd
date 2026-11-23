@@ -4,6 +4,8 @@ export type TopicStatus = 'TO_DISCUSS' | 'DISCUSSING' | 'DISCUSSED';
 
 export type RomanVoteChoice = 'EXTEND' | 'NEXT' | 'NEUTRAL';
 
+export type VotingMode = 'PRIORITY' | 'THERMOMETER';
+
 export interface Topic {
   id: string;
   session_id: string;
@@ -16,6 +18,9 @@ export interface Topic {
   notes: string;
   created_at: string;
   merged_count?: number;
+  thermo_count?: number | null;
+  thermo_avg?: number | null;
+  thermo_spread?: number | null;
 }
 
 export interface RomanVotingState {
@@ -39,6 +44,13 @@ export interface Session {
   active_topic_id?: string | null;
   created_at: string;
   updated_at: string;
+  voting_mode?: VotingMode;
+  thermometer_anonymous?: boolean;
+}
+
+export interface ThermometerPosition {
+  value: number;
+  name: string | null;
 }
 
 export interface SessionSnapshot {
@@ -48,4 +60,6 @@ export interface SessionSnapshot {
   is_facilitator: boolean;
   online_count: number;
   roman_voting: RomanVotingState;
+  thermometer_positions?: Record<string, ThermometerPosition[]>;
+  user_thermometer?: Record<string, number>;
 }
